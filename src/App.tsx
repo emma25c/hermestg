@@ -10,7 +10,6 @@ import { AffiliateHub } from './features/affiliate/AffiliateHub';
 import { PassModal } from './components/PassModal';
 import { TabType, UserPass } from './types';
 import { getStoredUserPass, isPassActive } from './lib/storage';
-import { FileText, Receipt, Smartphone } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<TabType>('outils');
@@ -49,45 +48,6 @@ export const App: React.FC = () => {
         {/* CONTENU SELON L'ONGLET SÉLECTIONNÉ */}
         {currentTab === 'outils' && (
           <div className="space-y-4">
-            {/* Sélecteur d'outils à 3 volets */}
-            <div className="grid grid-cols-3 gap-1.5 bg-slate-200/70 p-1 rounded-xl">
-              <button
-                onClick={() => setActiveTool('compressor')}
-                className={`py-2 px-2.5 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 truncate ${
-                  activeTool === 'compressor'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <FileText size={14} className="shrink-0" />
-                <span className="truncate">Compresseur &lt; 500 Ko</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTool('receipt')}
-                className={`py-2 px-2.5 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 truncate ${
-                  activeTool === 'receipt'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Receipt size={14} className="shrink-0" />
-                <span className="truncate">Reçu WhatsApp Pro</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTool('simulator')}
-                className={`py-2 px-2.5 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 truncate ${
-                  activeTool === 'simulator'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Smartphone size={14} className="shrink-0" />
-                <span className="truncate">Frais T-Money / Flooz</span>
-              </button>
-            </div>
-
             {activeTool === 'compressor' && <DocumentCompressor />}
             {activeTool === 'receipt' && <ReceiptGenerator />}
             {activeTool === 'simulator' && <FeeSimulator />}
