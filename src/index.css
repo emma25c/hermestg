@@ -2,8 +2,31 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  :root {
+    caret-color: #0f172a;
+  }
+
+  ::selection {
+    background-color: #0f172a;
+    color: #ffffff;
+  }
+
+  /* Chiffres tabulaires sur toute l'interface pour éviter les sauts visuels sur les prix et poids */
+  input[type="number"],
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Anneau de focus accessible et discret */
+  *:focus-visible {
+    outline: 2px solid #0f172a;
+    outline-offset: 2px;
+  }
+}
+
 @layer utilities {
-  /* Masquer la barre de défilement pour les onglets sur mobile */
+  /* Masquer la barre de défilement pour les onglets mobiles */
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
@@ -15,6 +38,8 @@
 
 body {
   margin: 0;
+  background-color: #fafaf9;
+  color: #0f172a;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

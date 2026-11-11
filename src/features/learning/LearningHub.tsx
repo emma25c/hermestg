@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BookOpen, Lock, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { BookOpen, Lock, CheckCircle, ChevronDown, ChevronUp, Clock, Compass } from 'lucide-react';
 import { TipItem, CourseItem } from '../../types';
 
 interface LearningHubProps {
@@ -14,76 +14,76 @@ export const LearningHub: React.FC<LearningHubProps> = ({ isPassActive, onOpenPa
   const tips: TipItem[] = [
     {
       id: 'tip-1',
-      title: 'Dépôt Concours & Bourses sous 500 Ko',
+      title: 'Passer les pièces de concours et bourses sous 500 Ko',
       category: 'concours',
-      badge: 'Gratuit',
+      badge: 'Accès Libre',
       readTime: '3 min',
-      summary: 'Comment scanner, recadrer et garantir vos pièces jointes sous 500 Ko sur smartphone sans aller au cybercafé.',
+      summary: 'Comment photographier, cadrer et convertir vos pièces d’état civil sous la limite stricte de 500 Ko des portails togolais.',
       content: [
-        '1. Prenez une photo à la lumière naturelle (près d’une fenêtre), évitez les reflets d’ampoules.',
-        '2. Utilisez l’onglet "Outils" de notre plateforme et activez le mode "Scan Administratif".',
-        '3. Le moteur local réduit le fichier à 470 Ko en A4 standard.',
-        '4. Téléchargez le PDF généré et téléversez-le directement sur le portail du concours.'
+        'Placez le document à plat sur une table près d’une source de lumière naturelle. Évitez les flashs et l’ombre directe de votre corps.',
+        'Ouvrez notre compresseur local et activez le mode "Scan Administratif". Le filtre blanchit automatiquement le papier et renforce le noir des signatures.',
+        'L’algorithme calibre la page à 1240 × 1754 px (norme A4 standard 150 DPI) et garantit un fichier sous 470 Ko.',
+        'Téléversez le PDF généré directement sur le portail du concours sans risquer de rejet technique.'
       ],
       isPremium: false
     },
     {
       id: 'tip-2',
-      title: 'Diviser par 3 sa consommation de Data Togocom / Moov',
+      title: 'Diviser par 3 la consommation des forfaits Togocom & Moov',
       category: 'data',
-      badge: 'Gratuit',
+      badge: 'Accès Libre',
       readTime: '4 min',
-      summary: 'Les réglages cachés Android et WhatsApp pour économiser 60 % de son forfait journalier de 100 F ou 200 F.',
+      summary: 'Les configurations dissimulées sous Android et WhatsApp pour préserver vos forfaits journaliers de 100 F ou 200 F.',
       content: [
-        '1. Dans WhatsApp > Utilisation données et stockage > Désactivez le téléchargement automatique des vidéos en données mobiles.',
-        '2. Dans Paramètres Android > Réseau > Économiseur de données : activez-le pour bloquer l’arrière-plan.',
-        '3. Sur TikTok Lite > Paramètres > Économiseur de données : cochez la case basse résolution.',
-        '4. Privilégiez notre PWA qui est mise en cache locale et consomme 0 Ko une fois ouverte.'
+        'WhatsApp : Paramètres > Utilisation données et stockage > Désactivez "Téléchargement automatique des médias" en données mobiles.',
+        'Android : Paramètres > Réseau et Internet > Économiseur de données : activez l’option pour bloquer les applications en arrière-plan.',
+        'TikTok Lite : Paramètres > Économiseur de données : basculez le flux vidéo en définition standard.',
+        'HermesTG est conçu en PWA : mettez-le en favori sur votre écran d’accueil pour l’utiliser sans consommer le moindre mégaoctet.'
       ],
       isPremium: false
     },
     {
       id: 'tip-3',
-      title: 'Payer en ligne sans compte bancaire au Togo',
+      title: 'Payer et encaisser en ligne sans compte bancaire à Lomé',
       category: 'finance',
-      badge: 'Gratuit',
+      badge: 'Accès Libre',
       readTime: '3 min',
-      summary: 'Comment acquérir et recharger une carte Visa prépayée (UBA Africard) avec T-Money/Flooz sans tracasserie.',
+      summary: 'Comment obtenir une carte Visa prépayée (UBA Africard) avec une simple pièce d’identité et la recharger via Flooz ou T-Money.',
       content: [
-        '1. Rendez-vous dans une agence UBA avec une simple photocopie de CNI et 5 000 FCFA.',
-        '2. Vous recevez immédiatement une carte Visa prépayée internationale sans ouverture de compte bancaire.',
-        '3. Vous pouvez la recharger via Flooz ou des points de recharge agréés.',
-        '4. Idéal pour payer des cours en ligne, des outils ou des abonnements sans carte de crédit classique.'
+        'Présentez-vous dans une agence UBA (Avenue de la Libération, Hedzranawoé ou Déckon) avec une photocopie de votre CNI togolaise et 5 000 FCFA.',
+        'La carte vous est remise sur-le-champ sans obligation d’ouvrir un compte bancaire ni justificatif de salaire.',
+        'Rechargez la carte directement auprès des sous-distributeurs ou via les passerelles Mobile Money compatibles.',
+        'Utilisez-la en toute sécurité pour vos achats en ligne sans risquer de découvert bancaire.'
       ],
       isPremium: false
     },
     {
       id: 'tip-4',
-      title: 'Détecter les fausses plateformes d’investissement en 30s',
+      title: 'Repérer en 30 secondes les fausses opportunités d’investissement',
       category: 'securite',
-      badge: 'Pass Exclusif',
+      badge: 'Pass Abonnés',
       readTime: '5 min',
-      summary: 'La checklist imparable pour repérer les arnaques pyramidales (Ponzi) qui ciblent les jeunes à Lomé.',
+      summary: 'La méthode d’audit rapide pour identifier les pyramides de Ponzi et faux groupes Telegram ciblant la jeunesse togolaise.',
       content: [
-        '1. Règle d’or : Si on vous promet plus de 5% de gain par jour ou par semaine garanti, c’est 100% une arnaque.',
-        '2. Vérifiez si l’entreprise a un Registre de Commerce (RCCM) vérifiable au CFE Togo.',
-        '3. Exigez de savoir d’où provient la valeur créée, et pas simplement le recrutement de nouveaux membres.',
-        '4. Ne versez jamais de l’argent sur un numéro T-Money personnel sans reçu ou contrat clair.'
+        'Toute promesse de rendement fixe supérieur à 2 % par mois est mathématiquement le signe d’un schéma d’escroquerie.',
+        'Exigez le numéro d’immatriculation RCCM vérifiable auprès du Centre de Formalités des Entreprises (CFE Togo).',
+        'Vérifiez la nature réelle de l’activité : si les revenus reposent uniquement sur l’entrée de nouveaux filleuls, abstenez-vous.',
+        'Ne réalisez aucun virement vers un numéro T-Money personnel sans contrat ni reçu opposable.'
       ],
       isPremium: true
     },
     {
       id: 'tip-5',
-      title: 'Candidature spontanée WhatsApp à Lomé qui obtient une réponse',
+      title: 'Formuler une candidature spontanée WhatsApp reçue à Lomé',
       category: 'concours',
-      badge: 'Pass Exclusif',
+      badge: 'Pass Abonnés',
       readTime: '4 min',
-      summary: 'La structure exacte d’un message WhatsApp professionnel pour contacter un recruteur ou chef d’entreprise local.',
+      summary: 'Le modèle de prise de contact direct pour solliciter un stage ou un emploi auprès d’un responsable d’entreprise au Togo.',
       content: [
-        '1. Salutation polie avec le nom exact de la personne ou de la société.',
-        '2. Proposition de valeur immédiate : ce que vous pouvez faire concrètement pour résoudre un problème de son entreprise.',
-        '3. Pièce jointe d’un CV d’une seule page, parfaitement cadré et pesant moins de 500 Ko.',
-        '4. Appel à l’action simple : proposer un court appel téléphonique de 5 minutes.'
+        'Identifiez le dirigeant ou le responsable des ressources humaines par son nom et son titre exact.',
+        'Rédigez un message d’approche de 5 lignes maximum : salutation formelle, qualification concrète et proposition de valeur immédiate.',
+        'Joignez votre CV au format PDF sous 500 Ko avec un nommage rigoureux (ex : CV_Prenom_Nom_Poste.pdf).',
+        'Sollicitez un échange téléphonique rapide de 5 minutes sur un créneau précis.'
       ],
       isPremium: true
     }
@@ -92,64 +92,71 @@ export const LearningHub: React.FC<LearningHubProps> = ({ isPassActive, onOpenPa
   const courses: CourseItem[] = [
     {
       id: 'course-1',
-      title: 'Maîtriser les Outils IA sur Smartphone',
+      title: 'Maîtriser les Outils d’IA sur Smartphone',
       category: 'Intelligence Artificielle',
-      duration: '15 min de lecture + fiches',
-      description: 'Apprenez à formuler des requêtes puissantes pour rédiger des courriers impeccables, préparer des devoirs et automatiser des mini-tâches rentables.',
-      modules: ['Comprendre les prompts mobiles', 'Générer des lettres de motivation togolaises', 'Résumer des documents PDF d’études'],
+      duration: '15 min de lecture pratique',
+      description: 'Techniques pour formuler des instructions précises, rédiger des courriers impeccables et synthétiser des documents d’études lourds sans ordinateur.',
+      modules: [
+        'Principes de base du prompt appliqué aux démarches administratives',
+        'Structuration de lettres de motivation et mémoires académiques',
+        'Synthèse rapide de cours et création de fiches de révision'
+      ],
       isPremium: false
     },
     {
       id: 'course-2',
-      title: 'Vente WhatsApp Pro à Lomé',
-      category: 'Business & Freelance',
-      duration: '20 min + modèles prêts',
-      description: 'Structurez votre statut WhatsApp, apprenez à relancer des clients sans être lourd, et émettez des reçus propres pour instaurer une confiance totale.',
-      modules: ['Le secret des statuts WhatsApp qui convertissent', 'Création de catalogue express', 'Sécurisation des paiements T-Money'],
+      title: 'Vente Professionnelle sur WhatsApp à Lomé',
+      category: 'Commerce & Freelance',
+      duration: '20 min + trames prêtes à l’emploi',
+      description: 'Comment transformer ses statuts WhatsApp en vitrine commerciale crédible, instaurer la confiance et formaliser ses ventes par reçu.',
+      modules: [
+        'Scénarisation des statuts WhatsApp sans surcharger ses contacts',
+        'Gestion des relances commerciales avec courtoisie',
+        'Émission systématique de reçus pour sécuriser les règlements T-Money'
+      ],
       isPremium: true
     },
     {
       id: 'course-3',
-      title: 'Lancer un Micro-Service Freelance avec 0 FCFA',
+      title: 'Lancer une Prestation de Micro-Services à 0 FCFA',
       category: 'Entrepreneuriat Étudiant',
-      duration: '15 min d’action',
-      description: 'Comment proposer des services de mise en page de CV, compression de dossiers et relecture depuis sa chambre d’étudiant.',
-      modules: ['Identifier les 3 services les plus demandés', 'Fixer ses tarifs en FCFA sans brader', 'Trouver ses 10 premiers clients dans sa fac'],
+      duration: '15 min d’application',
+      description: 'Méthodologie pour proposer des prestations de mise en page, correction de documents et formalisation administrative depuis son téléphone.',
+      modules: [
+        'Sélection des 3 prestations les plus demandées sur le marché local',
+        'Tarification équilibrée en FCFA sans dévaloriser son savoir-faire',
+        'Acquisition des 10 premiers clients dans son cercle universitaire'
+      ],
       isPremium: true
     }
   ];
 
   return (
-    <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-      <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
-            <BookOpen size={22} />
-          </div>
-          <div>
-            <h2 className="text-lg font-bold text-slate-900">Centre d'Apprentissage & Astuces</h2>
-            <p className="text-xs text-slate-500">Contenus concrets, mis à jour chaque semaine pour le Togo</p>
-          </div>
+    <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-100">
+        <div>
+          <h2 className="text-base font-bold text-slate-900 tracking-tight">Veille &amp; Compétences Locales</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Analyses de terrain vérifiées à Lomé et micro-formations d’action rapide.</p>
         </div>
-      </div>
 
-      <div className="flex gap-2 p-1 bg-slate-100 rounded-xl mb-4 text-xs font-bold">
-        <button
-          onClick={() => setActiveTab('astuces')}
-          className={`flex-1 py-2 rounded-lg transition-all ${
-            activeTab === 'astuces' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          💡 Astuces Vérifiées ({tips.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('formations')}
-          className={`flex-1 py-2 rounded-lg transition-all ${
-            activeTab === 'formations' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          🎓 Formations 15 min ({courses.length})
-        </button>
+        <div className="flex p-1 bg-slate-100 rounded-xl text-xs font-semibold">
+          <button
+            onClick={() => setActiveTab('astuces')}
+            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+              activeTab === 'astuces' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <Compass size={14} /> Astuces ({tips.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('formations')}
+            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+              activeTab === 'formations' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <BookOpen size={14} /> Formations ({courses.length})
+          </button>
+        </div>
       </div>
 
       {activeTab === 'astuces' ? (
@@ -162,7 +169,7 @@ export const LearningHub: React.FC<LearningHubProps> = ({ isPassActive, onOpenPa
               <div
                 key={tip.id}
                 className={`rounded-xl border transition-all ${
-                  isLocked ? 'bg-slate-50 border-slate-200' : 'bg-white border-slate-200 hover:border-slate-300'
+                  isLocked ? 'bg-slate-50 border-slate-200/80' : 'bg-white border-slate-200/80 hover:border-slate-300'
                 }`}
               >
                 <div
@@ -173,37 +180,39 @@ export const LearningHub: React.FC<LearningHubProps> = ({ isPassActive, onOpenPa
                       setExpandedTip(isExpanded ? null : tip.id);
                     }
                   }}
-                  className="p-3.5 flex items-start justify-between cursor-pointer"
+                  className="p-4 flex items-start justify-between cursor-pointer gap-3"
                 >
-                  <div className="flex-1 pr-3">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        tip.isPremium ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                        tip.isPremium ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-700'
                       }`}>
                         {tip.badge}
                       </span>
-                      <span className="text-[11px] text-slate-400 font-medium">⏱️ {tip.readTime}</span>
+                      <span className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
+                        <Clock size={12} /> {tip.readTime}
+                      </span>
                     </div>
-                    <h3 className="text-sm font-bold text-slate-800 leading-snug">{tip.title}</h3>
-                    <p className="text-xs text-slate-500 mt-1">{tip.summary}</p>
+                    <h3 className="text-sm font-bold text-slate-900 leading-snug">{tip.title}</h3>
+                    <p className="text-xs text-slate-600 mt-1 leading-relaxed">{tip.summary}</p>
                   </div>
 
                   <div className="shrink-0 pt-1 text-slate-400">
                     {isLocked ? (
-                      <Lock size={18} className="text-amber-500" />
+                      <Lock size={16} className="text-amber-600" />
                     ) : isExpanded ? (
-                      <ChevronUp size={18} />
+                      <ChevronUp size={16} />
                     ) : (
-                      <ChevronDown size={18} />
+                      <ChevronDown size={16} />
                     )}
                   </div>
                 </div>
 
                 {isExpanded && !isLocked && (
-                  <div className="px-3.5 pb-3.5 pt-1 border-t border-slate-100 bg-emerald-50/20 text-xs text-slate-700 space-y-2">
+                  <div className="px-4 pb-4 pt-2 border-t border-slate-100 bg-slate-50/50 text-xs text-slate-700 space-y-2">
                     {tip.content.map((point, i) => (
                       <div key={i} className="flex items-start gap-2">
-                        <CheckCircle size={14} className="text-emerald-600 shrink-0 mt-0.5" />
+                        <CheckCircle size={14} className="text-emerald-700 shrink-0 mt-0.5" />
                         <span className="leading-relaxed">{point}</span>
                       </div>
                     ))}
@@ -214,42 +223,42 @@ export const LearningHub: React.FC<LearningHubProps> = ({ isPassActive, onOpenPa
           })}
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {courses.map((course) => {
             const isLocked = course.isPremium && !isPassActive;
 
             return (
               <div
                 key={course.id}
-                className="p-4 rounded-xl border border-slate-200 bg-white hover:border-slate-300 transition-all"
+                className="p-5 rounded-2xl border border-slate-200/80 bg-white hover:border-slate-300 transition-all"
               >
-                <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="flex items-start justify-between gap-3 mb-2">
                   <div>
-                    <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                       {course.category}
                     </span>
-                    <h3 className="text-sm font-bold text-slate-900 mt-1">{course.title}</h3>
+                    <h3 className="text-sm font-bold text-slate-900 mt-0.5">{course.title}</h3>
                   </div>
                   {isLocked ? (
-                    <span className="flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md">
-                      <Lock size={12} /> Pass Requis
+                    <span className="flex items-center gap-1 text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full shrink-0">
+                      <Lock size={11} /> Pass Exclusif
                     </span>
                   ) : (
-                    <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+                    <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full shrink-0">
                       Accès Libre
                     </span>
                   )}
                 </div>
 
-                <p className="text-xs text-slate-600 mb-3">{course.description}</p>
+                <p className="text-xs text-slate-600 mb-3 leading-relaxed">{course.description}</p>
 
-                <div className="bg-slate-50 p-2.5 rounded-lg mb-3">
-                  <span className="text-[11px] font-bold text-slate-500 block mb-1">Modules inclus :</span>
-                  <ul className="text-xs text-slate-700 space-y-1">
+                <div className="bg-slate-50 p-3 rounded-xl mb-4 border border-slate-100">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1.5">Séquences pratiques :</span>
+                  <ul className="text-xs text-slate-700 space-y-1.5">
                     {course.modules.map((m, idx) => (
-                      <li key={idx} className="flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0"></span>
-                        {m}
+                      <li key={idx} className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-900 shrink-0"></span>
+                        <span>{m}</span>
                       </li>
                     ))}
                   </ul>
@@ -258,13 +267,13 @@ export const LearningHub: React.FC<LearningHubProps> = ({ isPassActive, onOpenPa
                 {isLocked ? (
                   <button
                     onClick={onOpenPassModal}
-                    className="w-full py-2 px-3 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white flex items-center justify-center gap-1.5 transition-colors"
+                    className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white flex items-center justify-center gap-1.5 transition-colors shadow-xs"
                   >
-                    <Lock size={14} /> Débloquer avec le Pass (1 000 FCFA)
+                    <Lock size={14} /> Débloquer avec le Pass (1 500 FCFA/mois)
                   </button>
                 ) : (
-                  <button className="w-full py-2 px-3 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center gap-1.5 transition-colors">
-                    <BookOpen size={14} /> Commencer la Formation
+                  <button className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold bg-emerald-700 hover:bg-emerald-800 text-white flex items-center justify-center gap-1.5 transition-colors shadow-xs">
+                    <BookOpen size={14} /> Consulter la fiche pratique ({course.duration})
                   </button>
                 )}
               </div>

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Wifi, WifiOff } from 'lucide-react';
+import { WifiOff } from 'lucide-react';
 
 export const OfflineBadge: React.FC = () => {
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -18,18 +18,20 @@ export const OfflineBadge: React.FC = () => {
   }, []);
 
   return (
-    <div className={`px-2.5 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5 transition-colors ${
+    <div className={`px-2.5 py-1 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-colors border ${
       isOnline 
-        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
-        : 'bg-amber-100 text-amber-800 border border-amber-300 animate-pulse'
+        ? 'bg-slate-50 text-slate-700 border-slate-200' 
+        : 'bg-amber-50 text-amber-900 border-amber-300'
     }`}>
       {isOnline ? (
         <>
-          <Wifi size={13} /> En Ligne (Mode PWA Prêt)
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+          <span>PWA Prête</span>
         </>
       ) : (
         <>
-          <WifiOff size={13} /> Mode Hors-Ligne (0 data)
+          <WifiOff size={12} className="text-amber-700" />
+          <span>Hors-Ligne (0 data)</span>
         </>
       )}
     </div>

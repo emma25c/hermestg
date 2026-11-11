@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Zap, MessageCircle } from 'lucide-react';
+import { X, MessageCircle } from 'lucide-react';
 import { UserPass } from '../types';
 import { saveUserPass } from '../lib/storage';
 
@@ -23,44 +23,43 @@ export const PassModal: React.FC<PassModalProps> = ({
   if (!isOpen) return null;
 
   const founderWhatsApp = '+22890000000'; // À remplacer par le numéro réel du fondateur
-  const tmoneyNumber = '90 00 00 00';
-  const floozNumber = '99 00 00 00';
+  const tmoneyNumber = '90 12 34 56';
+  const floozNumber = '99 12 34 56';
 
   const plans = [
     {
       id: 'pass_7d' as const,
-      name: 'Pass Découverte',
-      duration: '7 Jours',
+      name: 'Pass 7 Jours',
+      duration: 'Semaine',
       price: 500,
-      description: 'Idéal pour déposer un concours urgent cette semaine'
+      description: 'Pour finaliser un dossier de concours ou de stage urgent'
     },
     {
       id: 'pass_30d' as const,
-      name: 'Pass Mensuel (Recommandé)',
-      duration: '30 Jours',
+      name: 'Pass Mensuel (30 Jours)',
+      duration: 'Mois',
       price: 1500,
-      badge: 'Le + Populaire',
-      description: 'Accès illimité aux formations IA, compresseur multi-pages & -50% sur les CV'
+      badge: 'Recommandé',
+      description: 'Accès intégral : formations, fiches de veille, compresseur & -50% sur les CV'
     },
     {
       id: 'pass_90d' as const,
-      name: 'Pass Trimestriel',
-      duration: '90 Jours',
+      name: 'Pass Trimestriel (90 Jours)',
+      duration: 'Trimestre',
       price: 3500,
-      description: 'Économisez 1 000 FCFA pour toute la période des concours'
+      description: 'Couvre l’intégralité de la session des concours nationaux'
     }
   ];
 
   const currentPlan = plans.find(p => p.id === selectedPlan)!;
 
   const handleWhatsAppPayment = () => {
-    const text = `Bonjour ! Je viens d'effectuer un transfert pour le *${currentPlan.name}* (${currentPlan.price} FCFA) sur HermesTG. Voici ma capture d'écran pour valider mon accès (Mon code parrain : ${userPass.referralCode}).`;
+    const text = `Bonjour ! Je viens d'effectuer le transfert pour mon *${currentPlan.name}* (${currentPlan.price} FCFA) sur HermesTG.\nMon code parrain : ${userPass.referralCode}.\nVoici ma capture d'écran pour valider mon accès :`;
     const url = `https://wa.me/${founderWhatsApp}?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };
 
   const handleApplyCode = () => {
-    // Démo de code d'activation (ex: TOGO2026 ou PASSVIP)
     const normalized = activationCode.trim().toUpperCase();
     if (normalized === 'TOGO2026' || normalized === 'PASSVIP') {
       const days = selectedPlan === 'pass_7d' ? 7 : selectedPlan === 'pass_30d' ? 30 : 90;
@@ -74,85 +73,84 @@ export const PassModal: React.FC<PassModalProps> = ({
       onPassUpdated(updated);
       onClose();
     } else {
-      setActivationError('Code invalide. Envoyez votre capture de transfert sur WhatsApp pour recevoir votre code.');
+      setActivationError('Code non reconnu. Envoyez votre capture de transfert sur WhatsApp pour recevoir votre code.');
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 shadow-2xl relative border border-slate-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
+      <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6 shadow-xl relative border border-slate-200">
         <button
           onClick={onClose}
-          className="absolute top-5 right-5 p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors"
+          className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
         >
-          <X size={20} />
+          <X size={18} />
         </button>
 
-        <div className="flex items-center gap-2 text-xs font-bold text-amber-700 bg-amber-50 px-3 py-1 rounded-full w-fit mb-3">
-          <Zap size={14} className="fill-amber-600" />
-          <span>Activation Instantanée par Mobile Money</span>
+        <div className="mb-5">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+            Souscription Mobile Money
+          </span>
+          <h2 className="text-lg font-bold text-slate-900 tracking-tight">Activer un Pass HermesTG</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Règlement direct par transfert T-Money ou Flooz sans carte bancaire.</p>
         </div>
 
-        <h2 className="text-xl font-black text-slate-900 tracking-tight">Débloquer le Pass Réussite Togo</h2>
-        <p className="text-xs text-slate-500 mb-5">Sans carte bancaire • Payez par T-Money ou Flooz</p>
-
-        {/* Choix de la formule */}
-        <div className="space-y-2.5 mb-5">
+        {/* Choix des formules */}
+        <div className="space-y-2 mb-5">
           {plans.map((p) => (
             <div
               key={p.id}
               onClick={() => setSelectedPlan(p.id)}
-              className={`p-3.5 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${
+              className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
                 selectedPlan === p.id
-                  ? 'border-emerald-600 bg-emerald-50/30'
+                  ? 'border-slate-900 bg-slate-50'
                   : 'border-slate-200 hover:border-slate-300'
               }`}
             >
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-slate-900">{p.name}</span>
+                  <span className="text-xs font-bold text-slate-900">{p.name}</span>
                   {p.badge && (
-                    <span className="text-[10px] font-black bg-orange-500 text-white px-2 py-0.5 rounded-full">
+                    <span className="text-[10px] font-bold bg-slate-900 text-white px-2 py-0.2 rounded">
                       {p.badge}
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-slate-500 mt-0.5">{p.description}</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">{p.description}</p>
               </div>
 
               <div className="text-right shrink-0">
-                <span className="text-base font-black text-emerald-800">{p.price.toLocaleString('fr-FR')} F</span>
-                <span className="text-[10px] text-slate-400 block font-semibold">{p.duration}</span>
+                <span className="text-sm font-black tabular-nums text-slate-900">{p.price.toLocaleString('fr-FR')} F</span>
+                <span className="text-[10px] text-slate-400 block font-medium">/ {p.duration}</span>
               </div>
             </div>
           ))}
         </div>
 
-        {/* Instructions de transfert local */}
-        <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 mb-5 text-xs text-slate-700 space-y-2">
-          <span className="font-bold text-slate-900 block mb-1">Comment régler au Togo :</span>
-          <div className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-slate-100">
-            <span className="font-semibold text-slate-700">T-Money (Togocom) :</span>
-            <span className="font-black font-mono text-emerald-700">{tmoneyNumber}</span>
+        {/* Coordonnées de transfert local */}
+        <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200/80 mb-5 text-xs text-slate-700 space-y-2">
+          <span className="font-bold text-slate-900 block text-[11px]">Numéros récepteurs officiels :</span>
+          <div className="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-slate-200">
+            <span className="font-medium text-slate-600">T-Money (Togocom)</span>
+            <span className="font-mono font-bold text-emerald-800">{tmoneyNumber}</span>
           </div>
-          <div className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-slate-100">
-            <span className="font-semibold text-slate-700">Flooz (Moov Africa) :</span>
-            <span className="font-black font-mono text-blue-700">{floozNumber}</span>
+          <div className="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-slate-200">
+            <span className="font-medium text-slate-600">Flooz (Moov Africa)</span>
+            <span className="font-mono font-bold text-blue-800">{floozNumber}</span>
           </div>
         </div>
 
-        {/* Bouton de confirmation WhatsApp */}
         <button
           onClick={handleWhatsAppPayment}
-          className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-3.5 px-4 rounded-xl text-sm flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.99] mb-4"
+          className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all active:scale-[0.99] shadow-xs mb-4"
         >
-          <MessageCircle size={18} /> Valider mon paiement sur WhatsApp (+228)
+          <MessageCircle size={15} /> Valider le transfert par capture d'écran
         </button>
 
         {/* Champ code d'activation immédiat */}
-        <div className="pt-4 border-t border-slate-100">
-          <label className="block text-[11px] font-semibold text-slate-600 mb-1.5">
-            Vous avez déjà reçu votre code de déblocage ?
+        <div className="pt-3.5 border-t border-slate-100">
+          <label className="block text-[11px] font-medium text-slate-600 mb-1.5">
+            Saisir un code de déblocage reçu :
           </label>
           <div className="flex gap-2">
             <input
@@ -160,13 +158,13 @@ export const PassModal: React.FC<PassModalProps> = ({
               placeholder="Ex: TOGO2026"
               value={activationCode}
               onChange={(e) => setActivationCode(e.target.value)}
-              className="flex-1 px-3 py-2 text-xs border border-slate-200 rounded-lg outline-none focus:ring-1 focus:ring-emerald-500 font-mono uppercase"
+              className="flex-1 px-3 py-1.5 text-xs border border-slate-300 rounded-lg outline-none focus:border-slate-900 font-mono uppercase"
             />
             <button
               onClick={handleApplyCode}
-              className="bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-slate-800 transition-colors"
+              className="bg-slate-100 hover:bg-slate-200 text-slate-900 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border border-slate-200"
             >
-              Activer
+              Appliquer
             </button>
           </div>
           {activationError && (
