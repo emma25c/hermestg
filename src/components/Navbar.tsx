@@ -58,7 +58,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <LionLogo size={34} />
               <div>
-                <span className="font-black text-base tracking-tight text-slate-900 block leading-tight">
+                <span className="font-display font-extrabold text-base tracking-tight text-slate-900 block leading-tight">
                   Djanta<span className="text-amber-600">Hub</span>
                 </span>
                 <span className="text-[10px] text-slate-400 font-medium block leading-none">
@@ -167,7 +167,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <div className="flex items-center gap-3">
                 <LionLogo size={40} />
                 <div>
-                  <span className="font-black text-lg tracking-tight text-slate-900 block leading-tight">
+                  <span className="font-display font-extrabold text-lg tracking-tight text-slate-900 block leading-tight">
                     Djanta<span className="text-amber-600">Hub</span>
                   </span>
                   <span className="text-[11px] text-slate-500 font-medium block">

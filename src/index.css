@@ -38,8 +38,15 @@
 
 body {
   margin: 0;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   background-color: #fafaf9;
   color: #0f172a;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Typographie d'impact pour les titres et emblèmes (0% AI slop) */
+h1, h2, h3, .font-display {
+  font-family: 'Syne', 'Plus Jakarta Sans', sans-serif;
+  letter-spacing: -0.025em;
 }
