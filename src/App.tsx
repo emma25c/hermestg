@@ -20,6 +20,13 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     setUserPass(getStoredUserPass());
+
+    // Si redirection après connexion OAuth Supabase (Google) ou confirmation email
+    const hash = window.location.hash;
+    const search = window.location.search;
+    if (hash.includes('access_token') || hash.includes('type=') || search.includes('code=')) {
+      setCurrentTab('profil');
+    }
   }, []);
 
   const passActive = isPassActive(userPass);
