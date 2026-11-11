@@ -7,6 +7,7 @@ import { FeeSimulator } from './features/simulator/FeeSimulator';
 import { LearningHub } from './features/learning/LearningHub';
 import { ServicesHub } from './features/services/ServicesHub';
 import { AffiliateHub } from './features/affiliate/AffiliateHub';
+import { UserProfile } from './features/profile/UserProfile';
 import { PassModal } from './components/PassModal';
 import { TabType, UserPass } from './types';
 import { getStoredUserPass, isPassActive } from './lib/storage';
@@ -67,6 +68,14 @@ export const App: React.FC = () => {
 
         {currentTab === 'affiliation' && (
           <AffiliateHub userPass={userPass} />
+        )}
+
+        {currentTab === 'profil' && (
+          <UserProfile
+            userPass={userPass}
+            onUpdatePass={(updated) => setUserPass(updated)}
+            onOpenPassModal={() => setIsPassModalOpen(true)}
+          />
         )}
       </main>
 

@@ -4,7 +4,7 @@ import { OfflineBadge } from './OfflineBadge';
 import { LionLogo } from './LionLogo';
 import { 
   Menu, X, FileText, Receipt, Smartphone, Compass, 
-  BookOpen, Briefcase, Users, ShieldCheck, ChevronRight, MessageCircle 
+  BookOpen, Briefcase, Users, ShieldCheck, ChevronRight, MessageCircle, User 
 } from 'lucide-react';
 import { isPassActive } from '../lib/storage';
 
@@ -68,7 +68,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          {/* Statut & Bouton Pass */}
+          {/* Statut & Bouton Pass & Profil */}
           <div className="flex items-center gap-2">
             <OfflineBadge />
 
@@ -82,6 +82,19 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <ShieldCheck size={14} className={active ? 'text-emerald-300' : 'text-amber-400'} />
               <span>{active ? 'Pass Actif' : 'Activer Pass'}</span>
+            </button>
+
+            <button
+              onClick={() => onSelectTab('profil')}
+              className={`p-1.5 rounded-lg border transition-colors flex items-center justify-center ${
+                currentTab === 'profil'
+                  ? 'bg-slate-900 text-white border-slate-900'
+                  : 'text-slate-700 hover:text-slate-950 border-slate-200 hover:bg-slate-100 bg-white'
+              }`}
+              title="Mon Profil & Informations"
+              aria-label="Mon Profil"
+            >
+              <User size={18} />
             </button>
           </div>
         </div>
@@ -124,6 +137,29 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             {/* Corps du menu : Toutes les rubriques claires */}
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
+              {/* GROUPE 0 : MON PROFIL */}
+              <div>
+                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 px-3 block mb-2">
+                  Espace Membre
+                </span>
+                <div className="space-y-1">
+                  <button
+                    onClick={() => handleNavigate('profil')}
+                    className={`w-full p-2.5 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors ${
+                      currentTab === 'profil'
+                        ? 'bg-slate-900 text-white'
+                        : 'text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <User size={16} className={currentTab === 'profil' ? 'text-amber-400' : 'text-slate-400'} />
+                      <span>Mon Profil &amp; Informations</span>
+                    </div>
+                    <ChevronRight size={14} className="text-slate-300" />
+                  </button>
+                </div>
+              </div>
+
               {/* GROUPE 1 : OUTILS DU QUOTIDIEN */}
               <div>
                 <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 px-3 block mb-2">

@@ -1,4 +1,4 @@
-export type TabType = 'outils' | 'formations' | 'services' | 'affiliation';
+export type TabType = 'outils' | 'formations' | 'services' | 'affiliation' | 'profil';
 
 export interface UserPass {
   status: 'free' | 'pass_7d' | 'pass_30d' | 'pass_90d';
@@ -6,6 +6,22 @@ export interface UserPass {
   referralCode: string;
   affiliateBalance: number;
   referralCount: number;
+}
+
+export interface UserProfileData {
+  id?: string;
+  email?: string;
+  fullName: string;
+  phone: string;
+  phoneProvider: 'T-Money' | 'Flooz' | 'Autre';
+  cityOrUniversity: string;
+  referredBy?: string;
+  referralCode: string;
+  passStatus: 'free' | 'pass_7d' | 'pass_30d' | 'pass_90d';
+  passExpiresAt: string | null;
+  affiliateBalance: number;
+  referralCount: number;
+  avatarUrl?: string;
 }
 
 export interface ReceiptItem {
