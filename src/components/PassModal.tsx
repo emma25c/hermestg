@@ -23,9 +23,9 @@ export const PassModal: React.FC<PassModalProps> = ({
 
   if (!isOpen) return null;
 
-  const founderWhatsApp = '+22890123456';
-  const tmoneyNumber = '90 12 34 56';
-  const floozNumber = '99 12 34 56';
+  const founderWhatsApp = '22872199337';
+  const tmoneyNumber = '72 19 93 37';
+  const floozNumber = '97 14 69 66';
 
   const plans = [
     {

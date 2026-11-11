@@ -6,7 +6,7 @@ interface ServicesHubProps {
 }
 
 export const ServicesHub: React.FC<ServicesHubProps> = ({ isPassActive }) => {
-  const whatsappNumber = '+22890123456';
+  const whatsappNumber = '22872199337';
 
   const services = [
     {

@@ -279,7 +279,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
 
               <a
-                href="https://wa.me/22890123456?text=Bonjour%20Djanta%20Hub,%20j'ai%20une%20question"
+                href="https://wa.me/22872199337?text=Bonjour%20Djanta%20Hub,%20j'ai%20une%20question"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full py-2 px-3 text-slate-600 hover:text-slate-900 text-xs font-medium rounded-lg transition-colors flex items-center justify-center gap-1.5 hover:bg-slate-200/50"

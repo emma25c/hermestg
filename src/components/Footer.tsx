@@ -16,7 +16,7 @@ export const Footer: React.FC = () => {
           Moteur client PWA : vos documents et photos d'identité sont traités en local sur votre appareil sans téléversement serveur.
         </p>
         <div className="pt-2 text-[10px] text-slate-400">
-          Lomé, Togo • Support direct WhatsApp : +228 90 12 34 56
+          Lomé, Togo • Support direct WhatsApp : +228 72 19 93 37 / +228 97 14 69 66
         </div>
       </div>
     </footer>

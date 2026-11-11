@@ -36,7 +36,7 @@ const PRESETS = [
 
 export const ReceiptGenerator: React.FC = () => {
   const [businessName, setBusinessName] = useState('Boutique Élégance Lomé');
-  const [businessPhone, setBusinessPhone] = useState('+228 90 12 34 56');
+  const [businessPhone, setBusinessPhone] = useState('+228 72 19 93 37');
   const [customerName, setCustomerName] = useState('Akofa Mensah');
   const [paymentMode, setPaymentMode] = useState<ReceiptData['paymentMode']>('T-Money');
   const [receiptNumber] = useState(`REC-${new Date().getFullYear().toString().slice(-2)}${Math.floor(1000 + Math.random() * 9000)}`);
