@@ -102,7 +102,7 @@ export const ReceiptGenerator: React.FC = () => {
 
   const shareReceiptSummary = () => {
     const itemLines = items.map(it => `• ${it.description} (x${it.quantity}) : ${(it.quantity * it.unitPrice).toLocaleString('fr-FR')} F`).join('\n');
-    const message = `*REÇU DE PAIEMENT — ${businessName.toUpperCase()}*\nN° ${receiptNumber} du ${new Date().toLocaleDateString('fr-FR')}\nClient : ${customerName || 'Client'}\nRèglement : ${paymentMode}\n\n*Articles :*\n${itemLines}\n\n*TOTAL : ${totalAmount.toLocaleString('fr-FR')} FCFA*\n\n${notes}\n\n_Reçu certifié généré avec HermesTG_`;
+    const message = `*REÇU DE PAIEMENT — ${businessName.toUpperCase()}*\nN° ${receiptNumber} du ${new Date().toLocaleDateString('fr-FR')}\nClient : ${customerName || 'Client'}\nRèglement : ${paymentMode}\n\n*Articles :*\n${itemLines}\n\n*TOTAL : ${totalAmount.toLocaleString('fr-FR')} FCFA*\n\n${notes}\n\n_Reçu certifié émis avec Djanta Hub_`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
   };
 

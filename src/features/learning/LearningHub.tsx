@@ -38,7 +38,7 @@ export const LearningHub: React.FC<LearningHubProps> = ({ isPassActive, onOpenPa
         'WhatsApp : Paramètres > Utilisation données et stockage > Désactivez "Téléchargement automatique des médias" en données mobiles.',
         'Android : Paramètres > Réseau et Internet > Économiseur de données : activez l’option pour bloquer les applications en arrière-plan.',
         'TikTok Lite : Paramètres > Économiseur de données : basculez le flux vidéo en définition standard.',
-        'HermesTG est conçu en PWA : mettez-le en favori sur votre écran d’accueil pour l’utiliser sans consommer le moindre mégaoctet.'
+        'Djanta Hub est conçu en PWA : mettez-le en favori sur votre écran d’accueil pour l’utiliser sans consommer le moindre mégaoctet.'
       ],
       isPremium: false
     },

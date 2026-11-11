@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, MessageCircle } from 'lucide-react';
 import { UserPass } from '../types';
 import { saveUserPass } from '../lib/storage';
+import { LionLogo } from './LionLogo';
 
 interface PassModalProps {
   isOpen: boolean;
@@ -22,7 +23,7 @@ export const PassModal: React.FC<PassModalProps> = ({
 
   if (!isOpen) return null;
 
-  const founderWhatsApp = '+22890000000'; // À remplacer par le numéro réel du fondateur
+  const founderWhatsApp = '+22890123456';
   const tmoneyNumber = '90 12 34 56';
   const floozNumber = '99 12 34 56';
 
@@ -54,14 +55,14 @@ export const PassModal: React.FC<PassModalProps> = ({
   const currentPlan = plans.find(p => p.id === selectedPlan)!;
 
   const handleWhatsAppPayment = () => {
-    const text = `Bonjour ! Je viens d'effectuer le transfert pour mon *${currentPlan.name}* (${currentPlan.price} FCFA) sur HermesTG.\nMon code parrain : ${userPass.referralCode}.\nVoici ma capture d'écran pour valider mon accès :`;
+    const text = `Bonjour ! Je viens d'effectuer le transfert pour mon *${currentPlan.name}* (${currentPlan.price} FCFA) sur Djanta Hub.\nMon code parrain : ${userPass.referralCode}.\nVoici ma capture d'écran pour valider mon accès :`;
     const url = `https://wa.me/${founderWhatsApp}?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };
 
   const handleApplyCode = () => {
     const normalized = activationCode.trim().toUpperCase();
-    if (normalized === 'TOGO2026' || normalized === 'PASSVIP') {
+    if (normalized === 'DJANTA2026' || normalized === 'TOGO2026' || normalized === 'PASSVIP') {
       const days = selectedPlan === 'pass_7d' ? 7 : selectedPlan === 'pass_30d' ? 30 : 90;
       const exp = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
       const updated: UserPass = {
@@ -87,12 +88,15 @@ export const PassModal: React.FC<PassModalProps> = ({
           <X size={18} />
         </button>
 
-        <div className="mb-5">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-            Souscription Mobile Money
-          </span>
-          <h2 className="text-lg font-bold text-slate-900 tracking-tight">Activer un Pass HermesTG</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Règlement direct par transfert T-Money ou Flooz sans carte bancaire.</p>
+        <div className="mb-5 flex items-start gap-3">
+          <LionLogo size={36} />
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
+              Souscription Mobile Money
+            </span>
+            <h2 className="text-lg font-bold text-slate-900 tracking-tight">Activer un Pass Djanta Hub</h2>
+            <p className="text-xs text-slate-500 mt-0.5">Règlement direct par transfert T-Money ou Flooz sans carte bancaire.</p>
+          </div>
         </div>
 
         {/* Choix des formules */}
@@ -155,7 +159,7 @@ export const PassModal: React.FC<PassModalProps> = ({
           <div className="flex gap-2">
             <input
               type="text"
-              placeholder="Ex: TOGO2026"
+              placeholder="Ex: DJANTA2026"
               value={activationCode}
               onChange={(e) => setActivationCode(e.target.value)}
               className="flex-1 px-3 py-1.5 text-xs border border-slate-300 rounded-lg outline-none focus:border-slate-900 font-mono uppercase"

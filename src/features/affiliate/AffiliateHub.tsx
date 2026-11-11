@@ -10,8 +10,8 @@ export const AffiliateHub: React.FC<AffiliateHubProps> = ({ userPass }) => {
   const [copied, setCopied] = useState(false);
   const [simulatedFriends, setSimulatedFriends] = useState(5);
 
-  const referralUrl = `https://hermestg.vercel.app?ref=${userPass.referralCode}`;
-  const shareText = `Je te recommande la plateforme HermesTG pour tes démarches au Togo (compresseur de concours garanti < 500 Ko, reçus de vente WhatsApp et simulateur de frais T-Money/Flooz) : ${referralUrl}`;
+  const referralUrl = `https://djantahub.vercel.app?ref=${userPass.referralCode}`;
+  const shareText = `Je te recommande la plateforme Djanta Hub pour tes démarches au Togo (compresseur de concours garanti < 500 Ko, reçus de vente WhatsApp et simulateur de frais T-Money/Flooz) : ${referralUrl}`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(referralUrl);

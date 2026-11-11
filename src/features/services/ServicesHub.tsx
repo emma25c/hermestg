@@ -51,7 +51,7 @@ export const ServicesHub: React.FC<ServicesHubProps> = ({ isPassActive }) => {
 
   const handleOrderService = (serviceTitle: string, price: number) => {
     const text = `Bonjour ! Je souhaite commander la prestation : *${serviceTitle}* (${price} FCFA).\n${
-      isPassActive ? 'J’ai un Pass HermesTG Actif (-50%).' : 'Je n’ai pas encore de Pass.'
+      isPassActive ? 'J’ai un Pass Djanta Hub Actif (-50%).' : 'Je n’ai pas encore de Pass.'
     }\nMerci de m'indiquer la marche à suivre pour l'envoi de mes éléments.`;
     const url = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');

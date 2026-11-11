@@ -1,7 +1,7 @@
 import { UserPass, ReceiptData } from '../types';
 
-const STORAGE_KEY_PASS = 'hermestg_user_pass';
-const STORAGE_KEY_RECEIPTS = 'hermestg_recent_receipts';
+const STORAGE_KEY_PASS = 'djantahub_user_pass';
+const STORAGE_KEY_RECEIPTS = 'djantahub_recent_receipts';
 
 export function getStoredUserPass(): UserPass {
   const raw = localStorage.getItem(STORAGE_KEY_PASS);
@@ -17,7 +17,7 @@ export function getStoredUserPass(): UserPass {
   const defaultPass: UserPass = {
     status: 'free',
     expiresAt: null,
-    referralCode: 'HTG' + Math.floor(1000 + Math.random() * 9000),
+    referralCode: 'DJANTA' + Math.floor(1000 + Math.random() * 9000),
     affiliateBalance: 0,
     referralCount: 0
   };

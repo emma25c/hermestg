@@ -29,18 +29,20 @@ export const App: React.FC = () => {
       <Navbar
         currentTab={currentTab}
         onSelectTab={setCurrentTab}
+        activeTool={activeTool}
+        onSelectTool={setActiveTool}
         userPass={userPass}
         onOpenPassModal={() => setIsPassModalOpen(true)}
       />
 
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-6">
-        {/* En-tête épuré sans eyebrow ni faux gradient */}
+        {/* Titre et raison d'être Djanta Hub */}
         <div className="mb-6 pb-2">
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
-            Plateforme d’outils pratiques et démarches pour le Togo.
+            Djanta Hub — La force d’avancer au Togo.
           </h1>
           <p className="text-xs sm:text-sm text-slate-600 mt-1 max-w-2xl leading-relaxed">
-            Exécutez vos compressions de documents administratifs sans serveur, produisez vos reçus commerciaux et calculez vos frais de retrait sans consommer de data.
+            Boîte à outils locale pour les élèves, étudiants et vendeurs de Lomé : compresser vos documents de concours sous 500 Ko, générer des reçus WhatsApp et calculer vos frais de retrait.
           </p>
         </div>
 
