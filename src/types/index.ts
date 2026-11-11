@@ -45,6 +45,7 @@ export interface CourseItem {
   category: string;
   duration: string;
   description: string;
-  modules: string[];
+  modules?: string[];
+  videoUrl?: string;
   isPremium: boolean;
 }

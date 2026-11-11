@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { BookOpen, Lock, CheckCircle, ChevronDown, ChevronUp, Clock, Compass } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { BookOpen, Lock, CheckCircle, ChevronDown, ChevronUp, Clock, Compass, Play, X, Video } from 'lucide-react';
 import { TipItem, CourseItem } from '../../types';
+import { fetchCourses, getYouTubeEmbedUrl, getYouTubeThumbnailUrl, FALLBACK_COURSES } from '../../lib/courses';
 
 interface LearningHubProps {
   isPassActive: boolean;
@@ -10,6 +11,31 @@ interface LearningHubProps {
 export const LearningHub: React.FC<LearningHubProps> = ({ isPassActive, onOpenPassModal }) => {
   const [activeTab, setActiveTab] = useState<'astuces' | 'formations'>('astuces');
   const [expandedTip, setExpandedTip] = useState<string | null>('tip-1');
+  const [courses, setCourses] = useState<CourseItem[]>(FALLBACK_COURSES);
+  const [selectedVideoCourse, setSelectedVideoCourse] = useState<CourseItem | null>(null);
+  const [isLoadingCourses, setIsLoadingCourses] = useState(false);
+
+  // Chargement dynamique depuis Supabase (avec fallback hors-ligne automatique)
+  useEffect(() => {
+    let isMounted = true;
+    setIsLoadingCourses(true);
+    fetchCourses()
+      .then((loaded) => {
+        if (isMounted && loaded && loaded.length > 0) {
+          setCourses(loaded);
+        }
+      })
+      .catch(() => {
+        // En cas d'absence de réseau, FALLBACK_COURSES est déjà affiché
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingCourses(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const tips: TipItem[] = [
     {
@@ -59,24 +85,24 @@ export const LearningHub: React.FC<LearningHubProps> = ({ isPassActive, onOpenPa
     },
     {
       id: 'tip-4',
-      title: 'Repérer en 30 secondes les fausses opportunités d’investissement',
+      title: 'Sécuriser son compte WhatsApp contre les piratages fréquents à Lomé',
       category: 'securite',
-      badge: 'Pass Abonnés',
-      readTime: '5 min',
-      summary: 'La méthode d’audit rapide pour identifier les pyramides de Ponzi et faux groupes Telegram ciblant la jeunesse togolaise.',
+      badge: 'Pass Recommandé',
+      readTime: '2 min',
+      summary: 'Activer le verrouillage par code PIN à 6 chiffres pour stopper net les tentatives d’usurpation d’identité.',
       content: [
-        'Toute promesse de rendement fixe supérieur à 2 % par mois est mathématiquement le signe d’un schéma d’escroquerie.',
-        'Exigez le numéro d’immatriculation RCCM vérifiable auprès du Centre de Formalités des Entreprises (CFE Togo).',
-        'Vérifiez la nature réelle de l’activité : si les revenus reposent uniquement sur l’entrée de nouveaux filleuls, abstenez-vous.',
-        'Ne réalisez aucun virement vers un numéro T-Money personnel sans contrat ni reçu opposable.'
+        'WhatsApp : Réglages > Compte > Vérification en deux étapes > Activer.',
+        'Choisissez un code confidentiel à 6 chiffres impossible à deviner (évitez 000000 ou votre date de naissance).',
+        'Renseignez une adresse email de récupération valide pour ne jamais perdre l’accès.',
+        'Règle d’or : ne communiquez JAMAIS par SMS ou appel le code à 6 chiffres reçu par SMS, même si l’interlocuteur prétend être un proche.'
       ],
       isPremium: true
     },
     {
       id: 'tip-5',
-      title: 'Formuler une candidature spontanée WhatsApp reçue à Lomé',
+      title: 'Contacter directement un recruteur ou chef d’entreprise togolais',
       category: 'concours',
-      badge: 'Pass Abonnés',
+      badge: 'Pass Recommandé',
       readTime: '4 min',
       summary: 'Le modèle de prise de contact direct pour solliciter un stage ou un emploi auprès d’un responsable d’entreprise au Togo.',
       content: [
@@ -89,54 +115,23 @@ export const LearningHub: React.FC<LearningHubProps> = ({ isPassActive, onOpenPa
     }
   ];
 
-  const courses: CourseItem[] = [
-    {
-      id: 'course-1',
-      title: 'Maîtriser les Outils d’IA sur Smartphone',
-      category: 'Intelligence Artificielle',
-      duration: '15 min de lecture pratique',
-      description: 'Techniques pour formuler des instructions précises, rédiger des courriers impeccables et synthétiser des documents d’études lourds sans ordinateur.',
-      modules: [
-        'Principes de base du prompt appliqué aux démarches administratives',
-        'Structuration de lettres de motivation et mémoires académiques',
-        'Synthèse rapide de cours et création de fiches de révision'
-      ],
-      isPremium: false
-    },
-    {
-      id: 'course-2',
-      title: 'Vente Professionnelle sur WhatsApp à Lomé',
-      category: 'Commerce & Freelance',
-      duration: '20 min + trames prêtes à l’emploi',
-      description: 'Comment transformer ses statuts WhatsApp en vitrine commerciale crédible, instaurer la confiance et formaliser ses ventes par reçu.',
-      modules: [
-        'Scénarisation des statuts WhatsApp sans surcharger ses contacts',
-        'Gestion des relances commerciales avec courtoisie',
-        'Émission systématique de reçus pour sécuriser les règlements T-Money'
-      ],
-      isPremium: true
-    },
-    {
-      id: 'course-3',
-      title: 'Lancer une Prestation de Micro-Services à 0 FCFA',
-      category: 'Entrepreneuriat Étudiant',
-      duration: '15 min d’application',
-      description: 'Méthodologie pour proposer des prestations de mise en page, correction de documents et formalisation administrative depuis son téléphone.',
-      modules: [
-        'Sélection des 3 prestations les plus demandées sur le marché local',
-        'Tarification équilibrée en FCFA sans dévaloriser son savoir-faire',
-        'Acquisition des 10 premiers clients dans son cercle universitaire'
-      ],
-      isPremium: true
+  const handleOpenCourse = (course: CourseItem) => {
+    if (course.isPremium && !isPassActive) {
+      onOpenPassModal();
+      return;
     }
-  ];
+
+    if (course.videoUrl) {
+      setSelectedVideoCourse(course);
+    }
+  };
 
   return (
     <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-100">
         <div>
           <h2 className="text-base font-bold text-slate-900 tracking-tight">Veille &amp; Compétences Locales</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Analyses de terrain vérifiées à Lomé et micro-formations d’action rapide.</p>
+          <p className="text-xs text-slate-500 mt-0.5">Analyses de terrain vérifiées à Lomé et micro-formations vidéos d’action rapide.</p>
         </div>
 
         <div className="flex p-1 bg-slate-100 rounded-xl text-xs font-semibold">
@@ -224,44 +219,88 @@ export const LearningHub: React.FC<LearningHubProps> = ({ isPassActive, onOpenPa
         </div>
       ) : (
         <div className="space-y-4">
+          {isLoadingCourses && (
+            <div className="text-center py-2 text-xs text-slate-400 animate-pulse">
+              Synchronisation des dernières vidéos de formation...
+            </div>
+          )}
+
           {courses.map((course) => {
             const isLocked = course.isPremium && !isPassActive;
+            const thumbnailUrl = getYouTubeThumbnailUrl(course.videoUrl);
 
             return (
               <div
                 key={course.id}
-                className="p-5 rounded-2xl border border-slate-200/80 bg-white hover:border-slate-300 transition-all"
+                className="p-5 rounded-2xl border border-slate-200/80 bg-white hover:border-slate-300 transition-all flex flex-col justify-between"
               >
-                <div className="flex items-start justify-between gap-3 mb-2">
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                      {course.category}
-                    </span>
-                    <h3 className="text-sm font-bold text-slate-900 mt-0.5">{course.title}</h3>
+                <div>
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        {course.category}
+                      </span>
+                      <h3 className="text-sm font-bold text-slate-900 mt-0.5">{course.title}</h3>
+                    </div>
+                    {isLocked ? (
+                      <span className="flex items-center gap-1 text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full shrink-0">
+                        <Lock size={11} /> Pass Exclusif
+                      </span>
+                    ) : (
+                      <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full shrink-0">
+                        Accès Libre
+                      </span>
+                    )}
                   </div>
-                  {isLocked ? (
-                    <span className="flex items-center gap-1 text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full shrink-0">
-                      <Lock size={11} /> Pass Exclusif
-                    </span>
-                  ) : (
-                    <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full shrink-0">
-                      Accès Libre
-                    </span>
+
+                  <p className="text-xs text-slate-600 mb-3 leading-relaxed">{course.description}</p>
+
+                  {/* Aperçu vidéo avec vignette YouTube */}
+                  {course.videoUrl && thumbnailUrl && (
+                    <div
+                      onClick={() => handleOpenCourse(course)}
+                      className="relative rounded-xl overflow-hidden aspect-video max-h-48 bg-slate-900 mb-3 cursor-pointer group border border-slate-200"
+                    >
+                      <img
+                        src={thumbnailUrl}
+                        alt={course.title}
+                        className="w-full h-full object-cover opacity-85 group-hover:opacity-95 group-hover:scale-102 transition-all duration-300"
+                        loading="lazy"
+                      />
+                      
+                      {/* Badge durée */}
+                      <span className="absolute bottom-2.5 right-2.5 bg-black/75 backdrop-blur-xs text-white text-[11px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
+                        <Clock size={11} /> {course.duration}
+                      </span>
+
+                      {/* Bouton lecture central ou Cadenas si verrouillé */}
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/25 group-hover:bg-black/10 transition-colors">
+                        {isLocked ? (
+                          <div className="bg-amber-500/90 text-white p-3 rounded-full shadow-lg backdrop-blur-xs">
+                            <Lock size={22} />
+                          </div>
+                        ) : (
+                          <div className="bg-white/95 text-slate-900 p-3 rounded-full shadow-lg group-hover:scale-110 transition-transform">
+                            <Play size={22} className="fill-slate-900 translate-x-0.5" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   )}
-                </div>
 
-                <p className="text-xs text-slate-600 mb-3 leading-relaxed">{course.description}</p>
-
-                <div className="bg-slate-50 p-3 rounded-xl mb-4 border border-slate-100">
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1.5">Séquences pratiques :</span>
-                  <ul className="text-xs text-slate-700 space-y-1.5">
-                    {course.modules.map((m, idx) => (
-                      <li key={idx} className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-900 shrink-0"></span>
-                        <span>{m}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  {course.modules && course.modules.length > 0 && (
+                    <div className="bg-slate-50 p-3 rounded-xl mb-4 border border-slate-100">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1.5">Séquences pratiques :</span>
+                      <ul className="text-xs text-slate-700 space-y-1.5">
+                        {course.modules.map((m, idx) => (
+                          <li key={idx} className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-900 shrink-0"></span>
+                            <span>{m}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
 
                 {isLocked ? (
@@ -269,16 +308,76 @@ export const LearningHub: React.FC<LearningHubProps> = ({ isPassActive, onOpenPa
                     onClick={onOpenPassModal}
                     className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white flex items-center justify-center gap-1.5 transition-colors shadow-xs"
                   >
-                    <Lock size={14} /> Débloquer avec le Pass (1 500 FCFA/mois)
+                    <Lock size={14} /> Débloquer la vidéo avec le Pass (1 500 F/mois)
                   </button>
                 ) : (
-                  <button className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold bg-emerald-700 hover:bg-emerald-800 text-white flex items-center justify-center gap-1.5 transition-colors shadow-xs">
-                    <BookOpen size={14} /> Consulter la fiche pratique ({course.duration})
+                  <button
+                    onClick={() => handleOpenCourse(course)}
+                    className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold bg-emerald-700 hover:bg-emerald-800 text-white flex items-center justify-center gap-2 transition-colors shadow-xs"
+                  >
+                    <Play size={14} className="fill-white" /> Regarder la vidéo ({course.duration})
                   </button>
                 )}
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* LECTEUR VIDÉO INTÉGRÉ SANS DISTRACTION NI PUB */}
+      {selectedVideoCourse && selectedVideoCourse.videoUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 animate-fadeIn">
+          {/* Fond sombre */}
+          <div
+            onClick={() => setSelectedVideoCourse(null)}
+            className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs transition-opacity"
+          />
+
+          {/* Fenêtre modale du lecteur */}
+          <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl z-10 border border-slate-200 overflow-hidden flex flex-col">
+            {/* Header du lecteur */}
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+              <div className="flex items-center gap-2 min-w-0 pr-3">
+                <Video size={16} className="text-emerald-600 shrink-0" />
+                <span className="text-xs font-bold text-slate-900 truncate">
+                  {selectedVideoCourse.title}
+                </span>
+              </div>
+              <button
+                onClick={() => setSelectedVideoCourse(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200 transition-colors shrink-0"
+                aria-label="Fermer la vidéo"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Lecteur iframe YouTube Privacy-Enhanced */}
+            <div className="relative w-full aspect-video bg-black">
+              {getYouTubeEmbedUrl(selectedVideoCourse.videoUrl) ? (
+                <iframe
+                  src={getYouTubeEmbedUrl(selectedVideoCourse.videoUrl)!}
+                  title={selectedVideoCourse.title}
+                  className="w-full h-full border-0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 text-xs p-6 text-center">
+                  <p>Lien vidéo non disponible ou format non supporté.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Description sous la vidéo */}
+            <div className="p-4 bg-white text-xs text-slate-600 space-y-1.5 border-t border-slate-100">
+              <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium">
+                <span className="font-semibold text-slate-800">{selectedVideoCourse.category}</span>
+                <span>Durée : {selectedVideoCourse.duration}</span>
+              </div>
+              <p className="leading-relaxed">{selectedVideoCourse.description}</p>
+            </div>
+          </div>
         </div>
       )}
     </div>
