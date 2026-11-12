@@ -5,7 +5,7 @@ import { LionLogo } from './LionLogo';
 import { 
   Menu, X, FileText, Receipt, Smartphone, Compass, 
   BookOpen, Briefcase, Users, ShieldCheck, ChevronRight, MessageCircle, User,
-  GraduationCap
+  GraduationCap, LogOut
 } from 'lucide-react';
 import { isPassActive } from '../lib/storage';
 
@@ -16,6 +16,8 @@ interface NavbarProps {
   onSelectTool: (tool: ActiveToolType) => void;
   userPass: UserPass;
   onOpenPassModal: () => void;
+  onSignOut?: () => void;
+  sessionUser?: any;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -24,7 +26,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeTool,
   onSelectTool,
   userPass,
-  onOpenPassModal
+  onOpenPassModal,
+  onSignOut,
+  sessionUser
 }) => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const active = isPassActive(userPass);
@@ -92,11 +96,23 @@ export const Navbar: React.FC<NavbarProps> = ({
                   ? 'bg-slate-900 text-white border-slate-900'
                   : 'text-slate-700 hover:text-slate-950 border-slate-200 hover:bg-slate-100 bg-white'
               }`}
-              title="Mon Profil & Informations"
+              title={sessionUser?.email ? `Connecté : ${sessionUser.email}` : "Mon Profil & Informations"}
               aria-label="Mon Profil"
             >
               <User size={18} />
             </button>
+
+            {onSignOut && (
+              <button
+                type="button"
+                onClick={onSignOut}
+                className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 bg-white transition-colors flex items-center justify-center"
+                title="Se déconnecter"
+                aria-label="Se déconnecter"
+              >
+                <LogOut size={17} />
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -158,6 +174,22 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </div>
                     <ChevronRight size={14} className="text-slate-300" />
                   </button>
+
+                  {onSignOut && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsDrawerOpen(false);
+                        onSignOut();
+                      }}
+                      className="w-full p-2.5 rounded-xl text-xs font-semibold flex items-center justify-between text-rose-600 hover:bg-rose-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <LogOut size={16} className="text-rose-500" />
+                        <span>Se déconnecter</span>
+                      </div>
+                    </button>
+                  )}
                 </div>
               </div>
 

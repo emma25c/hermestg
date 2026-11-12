@@ -9,30 +9,129 @@ import { LearningHub } from './features/learning/LearningHub';
 import { ServicesHub } from './features/services/ServicesHub';
 import { AffiliateHub } from './features/affiliate/AffiliateHub';
 import { UserProfile } from './features/profile/UserProfile';
+import { AuthGate } from './features/auth/AuthGate';
+import { LionLogo } from './components/LionLogo';
 import { PassModal } from './components/PassModal';
 import { TabType, ActiveToolType, UserPass } from './types';
 import { getStoredUserPass, isPassActive } from './lib/storage';
+import { supabase, isSupabaseConfigured } from './lib/supabase';
+import { signOutUser } from './lib/auth';
 import { FileText, Receipt, Smartphone, GraduationCap } from 'lucide-react';
 
 export const App: React.FC = () => {
+  const [sessionUser, setSessionUser] = useState<any>(null);
+  const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
+
   const [currentTab, setCurrentTab] = useState<TabType>('outils');
   const [activeTool, setActiveTool] = useState<ActiveToolType>('apc_generator');
   const [userPass, setUserPass] = useState<UserPass>(getStoredUserPass());
   const [isPassModalOpen, setIsPassModalOpen] = useState(false);
 
+  // 1. Écoute de la session Supabase active et des changements d'état
   useEffect(() => {
+    let isMounted = true;
     setUserPass(getStoredUserPass());
 
-    // Si redirection après connexion OAuth Supabase (Google) ou confirmation email
-    const hash = window.location.hash;
-    const search = window.location.search;
-    if (hash.includes('access_token') || hash.includes('type=') || search.includes('code=')) {
-      setCurrentTab('profil');
+    if (!isSupabaseConfigured()) {
+      setIsAuthChecking(false);
+      return;
     }
+
+    // Récupérer la session active sauvegardée
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!isMounted) return;
+      if (session?.user) {
+        setSessionUser(session.user);
+      } else {
+        setSessionUser(null);
+      }
+      setIsAuthChecking(false);
+    }).catch((err) => {
+      console.error('Erreur vérification session:', err);
+      if (isMounted) {
+        setSessionUser(null);
+        setIsAuthChecking(false);
+      }
+    });
+
+    // Écouter dynamiquement les connexions, rafraîchissements et déconnexions
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!isMounted) return;
+      const user = session?.user ?? null;
+      setSessionUser(user);
+      setIsAuthChecking(false);
+
+      if (event === 'SIGNED_OUT') {
+        setSessionUser(null);
+      }
+
+      // Nettoyer l'URL si retour d'OAuth Google ou Magic Link
+      const hash = window.location.hash;
+      const search = window.location.search;
+      if (hash.includes('access_token') || hash.includes('type=') || search.includes('code=')) {
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
+
+  // Déconnexion complète réinitialisant la session
+  const handleSignOut = async () => {
+    try {
+      await signOutUser();
+    } catch (err) {
+      console.error('Erreur lors de la déconnexion:', err);
+    } finally {
+      setSessionUser(null);
+    }
+  };
 
   const passActive = isPassActive(userPass);
 
+  // ÉCRAN DE CHARGEMENT INITIAL (SPLASH SCREEN AVEC LION DJANTA ET SPINNER)
+  if (isAuthChecking) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex flex-col items-center justify-center p-6 text-white select-none">
+        <div className="flex flex-col items-center text-center space-y-5 max-w-sm animate-fadeIn">
+          <div className="relative">
+            <div className="absolute -inset-4 bg-amber-500/20 rounded-full blur-2xl animate-pulse" />
+            <LionLogo size={76} className="w-20 h-20 relative z-10" />
+          </div>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white font-display">
+              Djanta<span className="text-amber-500">Hub</span>
+            </h1>
+            <p className="text-xs text-slate-400 mt-1 font-medium">
+              La force d’avancer au Togo 🇹🇬
+            </p>
+          </div>
+          <div className="flex items-center gap-3 px-4 py-2 rounded-full bg-slate-900/90 border border-slate-800 text-xs text-slate-300 shadow-xl">
+            <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+            <span>Vérification de la session...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // PORTAIL D'AUTHENTIFICATION OBLIGATOIRE SI NON CONNECTÉ
+  if (!sessionUser) {
+    return (
+      <AuthGate
+        onAuthenticated={(user) => {
+          setSessionUser(user);
+        }}
+      />
+    );
+  }
+
+  // APPLICATION COMPLÈTE DISPONIBLE UNIQUEMENT POUR L'UTILISATEUR CONNECTÉ
   return (
     <div className="min-h-screen bg-[#fafaf9] text-slate-900 flex flex-col font-sans antialiased selection:bg-slate-900 selection:text-white">
       <Navbar
@@ -42,6 +141,8 @@ export const App: React.FC = () => {
         onSelectTool={setActiveTool}
         userPass={userPass}
         onOpenPassModal={() => setIsPassModalOpen(true)}
+        onSignOut={handleSignOut}
+        sessionUser={sessionUser}
       />
 
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-6">
@@ -148,6 +249,7 @@ export const App: React.FC = () => {
             userPass={userPass}
             onUpdatePass={(updated) => setUserPass(updated)}
             onOpenPassModal={() => setIsPassModalOpen(true)}
+            onSignOut={handleSignOut}
           />
         )}
       </main>

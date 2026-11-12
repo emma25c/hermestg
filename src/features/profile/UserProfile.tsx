@@ -20,12 +20,14 @@ interface UserProfileProps {
   userPass: UserPass;
   onUpdatePass: (pass: UserPass) => void;
   onOpenPassModal: () => void;
+  onSignOut?: () => void;
 }
 
 export const UserProfile: React.FC<UserProfileProps> = ({
   userPass,
   onUpdatePass,
-  onOpenPassModal
+  onOpenPassModal,
+  onSignOut
 }) => {
   const [profile, setProfile] = useState<UserProfileData>(getStoredUserProfile());
   const [isSaved, setIsSaved] = useState(false);
@@ -203,6 +205,9 @@ export const UserProfile: React.FC<UserProfileProps> = ({
     try {
       await signOutUser();
       setSessionUser(null);
+      if (onSignOut) {
+        onSignOut();
+      }
     } catch (err: any) {
       setAuthError(err.message);
     } finally {

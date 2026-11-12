@@ -683,25 +683,21 @@ export async function testGeminiApiKey(key: string, modelName = DEFAULT_GEMINI_M
 export async function generateApcExamWithGemini(
   params: ApcGenerationParams & { hasActivePass?: boolean; userId?: string }
 ): Promise<ApcExam> {
-  // 1. DÉTERMINATION DE LA CLÉ À UTILISER & MONÉTISATION
-  const personalKey = params.apiKey || getStoredGeminiApiKey();
-  let keyToUse = personalKey;
+  // 1. CONTRÔLE DU MODÈLE ÉCONOMIQUE (Pass Djanta ou Quota d'essai gratuit)
+  const hasActivePass = Boolean(params.hasActivePass);
+  const usedCount = getFreeExamsUsedCount();
+
+  if (!hasActivePass && usedCount >= FREE_EXAMS_QUOTA) {
+    throw new Error(
+      'MONETIZATION_LIMIT_REACHED: Vous avez atteint votre quota d’essai de 2 épreuves gratuites. Activez votre Pass Djanta (à partir de 700 FCFA) pour débloquer la génération illimitée d’épreuves officielles.'
+    );
+  }
+
+  // 2. DÉTERMINATION DE LA CLÉ À UTILISER (Rotation 100% assurée par le pool Supabase)
+  let keyToUse = params.apiKey || '';
   let isUsingPool = false;
 
-  if (personalKey) {
-    // Si l'utilisateur ou l'enseignant fournit sa propre clé : usage illimité 100% autonome
-    keyToUse = personalKey;
-  } else {
-    // Pas de clé personnelle : contrôle du modèle économique (Pass Djanta ou Quota d'essai gratuit)
-    const hasActivePass = Boolean(params.hasActivePass);
-    const usedCount = getFreeExamsUsedCount();
-
-    if (!hasActivePass && usedCount >= FREE_EXAMS_QUOTA) {
-      throw new Error(
-        'MONETIZATION_LIMIT_REACHED: Vous avez atteint votre quota d’essai de 2 épreuves gratuites. Activez votre Pass Djanta (à partir de 700 FCFA) pour débloquer les épreuves illimitées avec le pool de clés haute vitesse de Djanta Hub, ou saisissez votre propre clé Gemini personnelle.'
-      );
-    }
-
+  if (!keyToUse) {
     // Récupération d'une clé active depuis le pool de rotation Supabase
     const poolKey = await fetchRotatedGeminiKeyFromPool();
     if (poolKey) {
@@ -714,7 +710,7 @@ export async function generateApcExamWithGemini(
         keyToUse = envKey;
       } else {
         throw new Error(
-          'Aucune clé API disponible dans le pool. Veuillez renseigner votre clé gratuite Google AI Studio (0 FCFA) ou contacter le fondateur pour approvisionner le pool.'
+          'Le service de génération IA est momentanément indisponible. Le pool de clés est en cours de réapprovisionnement. Veuillez réessayer dans un instant ou contacter le support Djanta Hub.'
         );
       }
     }
@@ -814,8 +810,8 @@ export async function generateApcExamWithGemini(
         rawJson: rawText
       };
 
-      // Si c'est un utilisateur gratuit utilisant le pool, on incrémente son quota
-      if (!personalKey && !params.hasActivePass) {
+      // Si c'est un utilisateur gratuit, on incrémente son quota
+      if (!params.hasActivePass) {
         incrementFreeExamsCount();
       }
 
@@ -831,6 +827,8 @@ export async function generateApcExamWithGemini(
 
   throw lastError || new Error('Impossible de générer l’épreuve avec Gemini.');
 }
+
+export const generateApcExamWithFallback = generateApcExamWithGemini;
 
 /**
  * Fournit des épreuves types pré-générées pour le mode hors-ligne / démonstration (0 FCFA et sans clé).
