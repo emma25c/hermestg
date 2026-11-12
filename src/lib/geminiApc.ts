@@ -5,10 +5,14 @@ import {
   ApcGenerationParams,
   ApcLessonRef
 } from '../types/apc';
+import { supabase } from './supabase';
 
 export const GEMINI_API_KEY_STORAGE = 'djanta_gemini_api_key';
 export const GEMINI_MODEL_STORAGE = 'djanta_gemini_model';
 export const APC_EXAMS_HISTORY_STORAGE = 'djanta_apc_exams_history';
+export const FREE_EXAMS_STORAGE_KEY = 'djanta_free_exams_used_count';
+
+export const FREE_EXAMS_QUOTA = 2; // 2 épreuves gratuites offertes aux nouveaux utilisateurs avant monétisation
 
 export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
 
@@ -134,6 +138,72 @@ export function getStoredGeminiModel(): string {
 export function saveStoredGeminiModel(model: string): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(GEMINI_MODEL_STORAGE, model.trim());
+}
+
+/**
+ * Récupère le nombre d'épreuves gratuites déjà générées par l'utilisateur sans pass.
+ */
+export function getFreeExamsUsedCount(): number {
+  if (typeof window === 'undefined') return 0;
+  const countStr = localStorage.getItem(FREE_EXAMS_STORAGE_KEY);
+  return countStr ? parseInt(countStr, 10) || 0 : 0;
+}
+
+/**
+ * Incrémente le compteur d'épreuves gratuites consommées.
+ */
+export function incrementFreeExamsCount(): number {
+  if (typeof window === 'undefined') return 1;
+  const current = getFreeExamsUsedCount();
+  const next = current + 1;
+  localStorage.setItem(FREE_EXAMS_STORAGE_KEY, next.toString());
+  return next;
+}
+
+/**
+ * Interroge Supabase pour obtenir une clé Gemini active par rotation (round-robin / moindre utilisation).
+ */
+export async function fetchRotatedGeminiKeyFromPool(): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.rpc('get_rotated_gemini_key');
+    if (error) {
+      console.warn('Erreur appel RPC get_rotated_gemini_key:', error);
+      return null;
+    }
+    return data ? (data as string).trim() : null;
+  } catch (err) {
+    console.warn('Exception appel get_rotated_gemini_key:', err);
+    return null;
+  }
+}
+
+/**
+ * Interface d'administration pour gérer le pool de clés API dans Supabase (protégée par code PIN fondateur).
+ */
+export async function manageAiKeysInPool(params: {
+  action: 'list' | 'add' | 'toggle' | 'delete';
+  pin: string;
+  key?: string;
+  label?: string;
+  id?: string;
+}): Promise<{ success: boolean; message?: string; error?: string; keys?: any[] }> {
+  try {
+    const { data, error } = await supabase.rpc('manage_ai_keys', {
+      p_action: params.action,
+      p_pin: params.pin.trim(),
+      p_key: params.key ? params.key.trim() : null,
+      p_label: params.label ? params.label.trim() : 'Clé Gemini Gratuite',
+      p_id: params.id || null
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return data as { success: boolean; message?: string; error?: string; keys?: any[] };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erreur réseau.' };
+  }
 }
 
 export function getSavedApcExams(): ApcExam[] {
@@ -284,8 +354,12 @@ RÈGLES PÉDAGOGIQUES MAJEURES APC TOGO (NON NÉGOCIABLES) :
    Les situations doivent s'ancrer dans le quotidien réel togolais moderne (Lomé, Kpalimé, Kara, Sokodé, Dapaong, Aného, Atakpamé, port autonome de Lomé, marché de Cacaveli, agriculture du maïs et du cacao, coopératives artisanales, installation d'énergie solaire).
    ÉVITER STRICTEMENT les clichés des vieilles annales : "Kpodji", "Koami", "40 membres", "4368 briques", "trapèze 20m x 70m".
 
-5. FORMAT DE SORTIE :
-   Tu dois répondre UNIQUEMENT par un objet JSON valide, sans préambule, sans texte avant ou après, sans balises de code Markdown.
+5. RÈGLES TECHNIQUES CRITIQUES FORMAT JSON (POUR ÉVITER TOUTE ERREUR DE SYNTAXE) :
+   - DANS TOUT LE CONTENU TEXTUEL : N'utilise JAMAIS de guillemets doubles (") à l'intérieur de tes phrases, énoncés, options ou corrigés !
+   - Pour citer un mot, un titre de livre, une expression, une consigne ou une formule, utilise EXCLUSIVEMENT des apostrophes simples (') ou des guillemets français (« et »). Exemple : 'x = 3' et JAMAIS "x = 3".
+   - Ne mets JAMAIS de virgule après le dernier élément d'un tableau (]) ou après la dernière clé d'un objet (}).
+   - Les retours à la ligne dans les textes doivent être échappés avec \\n.
+   - Tu dois répondre UNIQUEMENT par un objet JSON valide, sans préambule, sans texte avant ou après, sans balises de code Markdown.
 
 ${disciplineInstructions}`;
 }
@@ -441,25 +515,134 @@ Renvoie UNIQUEMENT le JSON pur sans aucun texte introductif ni markdown autour.`
 }
 
 /**
- * Nettoie une chaîne pour en extraire le JSON valide.
+ * Nettoie, répare et analyse un texte JSON renvoyé par l'IA.
+ * Répare de façon résiliente :
+ * - Les guillemets internes non échappés dans les chaînes de texte
+ * - Les virgules traînantes devant ] ou }
+ * - Les sauts de ligne réels dans les chaînes
+ * - Les légères troncatures de fin de document
  */
-function cleanJsonText(raw: string): string {
-  let cleaned = raw.trim();
-  if (cleaned.startsWith('```json')) {
-    cleaned = cleaned.substring(7);
-  } else if (cleaned.startsWith('```')) {
-    cleaned = cleaned.substring(3);
-  }
-  if (cleaned.endsWith('```')) {
-    cleaned = cleaned.substring(0, cleaned.length - 3);
-  }
-  cleaned = cleaned.trim();
-  const firstBrace = cleaned.indexOf('{');
-  const lastBrace = cleaned.lastIndexOf('}');
+export function repairAndParseJson(raw: string): any {
+  let text = raw.trim();
+
+  // 1. Suppression des balises Markdown de code
+  text = text.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/\s*```$/, '');
+
+  const firstBrace = text.indexOf('{');
+  const lastBrace = text.lastIndexOf('}');
   if (firstBrace !== -1 && lastBrace !== -1) {
-    cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+    text = text.substring(firstBrace, lastBrace + 1);
   }
-  return cleaned;
+
+  // 2. Première tentative : parsing direct
+  try {
+    return JSON.parse(text);
+  } catch (initialErr) {
+    // Si échec direct, enclencher la machine de réparation
+  }
+
+  // 3. Suppression des virgules traînantes devant ] ou }
+  text = text.replace(/,\s*([\]}])/g, '$1');
+
+  try {
+    return JSON.parse(text);
+  } catch {}
+
+  // 4. Normalisation des guillemets typographiques ou chevrons
+  text = text.replace(/[\u201C\u201D\u00AB\u00BB]/g, "'");
+  text = text.replace(/[\u2018\u2019]/g, "'");
+
+  // 5. Remplacement des sauts de ligne et tabulations réels dans les chaînes
+  text = text.replace(/"([^"\\]*(?:\\.[^"\\]*)*)"/gs, (match) => {
+    return match.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t');
+  });
+
+  try {
+    return JSON.parse(text);
+  } catch {}
+
+  // 6. Machine à états pour neutraliser les guillemets doubles non-échappés à l'intérieur des chaînes
+  let out = '';
+  let inStr = false;
+  let esc = false;
+  const stack: string[] = [];
+
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+
+    if (esc) {
+      out += c;
+      esc = false;
+      continue;
+    }
+
+    if (c === '\\') {
+      out += c;
+      esc = true;
+      continue;
+    }
+
+    if (c === '"') {
+      if (!inStr) {
+        inStr = true;
+        out += c;
+      } else {
+        // Regarder en avant pour vérifier s'il s'agit bien d'un délimiteur de fin de chaîne
+        let nextIndex = i + 1;
+        while (
+          nextIndex < text.length &&
+          (text[nextIndex] === ' ' || text[nextIndex] === '\t' || text[nextIndex] === '\n' || text[nextIndex] === '\r')
+        ) {
+          nextIndex++;
+        }
+        const next = text[nextIndex];
+
+        // S'il est suivi par :, ,, }, ] ou la fin du texte, c'est une fin de chaîne légitime
+        if (next === ':' || next === ',' || next === '}' || next === ']' || nextIndex >= text.length) {
+          inStr = false;
+          out += c;
+        } else {
+          // Guillemet interne non échappé : on le convertit en apostrophe pour ne pas casser le JSON
+          out += "'";
+        }
+      }
+      continue;
+    }
+
+    if (!inStr) {
+      if (c === '{' || c === '[') {
+        stack.push(c);
+      } else if (c === '}') {
+        if (stack.length > 0 && stack[stack.length - 1] === '{') stack.pop();
+      } else if (c === ']') {
+        if (stack.length > 0 && stack[stack.length - 1] === '[') stack.pop();
+      }
+    }
+
+    out += c;
+  }
+
+  if (inStr) {
+    out += '"';
+  }
+
+  // Nettoyage des virgules résiduelles
+  out = out.replace(/,\s*([\]}])/g, '$1');
+  out = out.replace(/,\s*$/, '');
+
+  // Fermeture des accolades/crochets non fermés si réponse tronquée
+  while (stack.length > 0) {
+    const open = stack.pop();
+    if (open === '{') out += '}';
+    if (open === '[') out += ']';
+  }
+
+  try {
+    return JSON.parse(out);
+  } catch (err: any) {
+    console.error('Erreur parsing après réparation machine à états:', err);
+    throw new Error(`Erreur d'analyse de la réponse IA (${err.message}). Veuillez relancer la génération.`);
+  }
 }
 
 /**
@@ -495,14 +678,46 @@ export async function testGeminiApiKey(key: string, modelName = DEFAULT_GEMINI_M
 }
 
 /**
- * Appelle l'API Gemini pour générer l'épreuve avec échelle de repli automatique.
+ * Appelle l'API Gemini pour générer l'épreuve avec échelle de repli et rotation automatique des clés.
  */
-export async function generateApcExamWithGemini(params: ApcGenerationParams): Promise<ApcExam> {
-  const key = params.apiKey || getStoredGeminiApiKey();
-  if (!key) {
-    throw new Error(
-      'Aucune clé API Gemini configurée. Veuillez renseigner votre clé gratuite Google AI Studio (0 FCFA) ou utiliser le mode Démo hors-ligne.'
-    );
+export async function generateApcExamWithGemini(
+  params: ApcGenerationParams & { hasActivePass?: boolean; userId?: string }
+): Promise<ApcExam> {
+  // 1. DÉTERMINATION DE LA CLÉ À UTILISER & MONÉTISATION
+  const personalKey = params.apiKey || getStoredGeminiApiKey();
+  let keyToUse = personalKey;
+  let isUsingPool = false;
+
+  if (personalKey) {
+    // Si l'utilisateur ou l'enseignant fournit sa propre clé : usage illimité 100% autonome
+    keyToUse = personalKey;
+  } else {
+    // Pas de clé personnelle : contrôle du modèle économique (Pass Djanta ou Quota d'essai gratuit)
+    const hasActivePass = Boolean(params.hasActivePass);
+    const usedCount = getFreeExamsUsedCount();
+
+    if (!hasActivePass && usedCount >= FREE_EXAMS_QUOTA) {
+      throw new Error(
+        'MONETIZATION_LIMIT_REACHED: Vous avez atteint votre quota d’essai de 2 épreuves gratuites. Activez votre Pass Djanta (à partir de 700 FCFA) pour débloquer les épreuves illimitées avec le pool de clés haute vitesse de Djanta Hub, ou saisissez votre propre clé Gemini personnelle.'
+      );
+    }
+
+    // Récupération d'une clé active depuis le pool de rotation Supabase
+    const poolKey = await fetchRotatedGeminiKeyFromPool();
+    if (poolKey) {
+      keyToUse = poolKey;
+      isUsingPool = true;
+    } else {
+      // Clé fallback d'environnement si configurée
+      const envKey = import.meta.env.VITE_GEMINI_API_KEY;
+      if (envKey) {
+        keyToUse = envKey;
+      } else {
+        throw new Error(
+          'Aucune clé API disponible dans le pool. Veuillez renseigner votre clé gratuite Google AI Studio (0 FCFA) ou contacter le fondateur pour approvisionner le pool.'
+        );
+      }
+    }
   }
 
   const modelsToTry = [
@@ -521,7 +736,7 @@ export async function generateApcExamWithGemini(params: ApcGenerationParams): Pr
 
   for (const model of uniqueModels) {
     try {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key.trim()}`;
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${keyToUse.trim()}`;
 
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -537,7 +752,7 @@ export async function generateApcExamWithGemini(params: ApcGenerationParams): Pr
             parts: [{ text: systemPrompt }]
           },
           generationConfig: {
-            temperature: 0.3,
+            temperature: 0.1, // Déterminisme élevé pour supprimer les anomalies de syntaxe JSON
             maxOutputTokens: 8192,
             responseMimeType: 'application/json'
           }
@@ -547,6 +762,17 @@ export async function generateApcExamWithGemini(params: ApcGenerationParams): Pr
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
         const errMsg = errorData?.error?.message || `HTTP ${res.status}`;
+
+        // En cas de saturation quota (429) ou problème de clé sur le pool, faire une rotation automatique !
+        if (isUsingPool && (res.status === 429 || res.status === 403)) {
+          console.warn(`Clé du pool saturée (${res.status}), rotation automatique vers une autre clé...`);
+          const anotherKey = await fetchRotatedGeminiKeyFromPool();
+          if (anotherKey && anotherKey !== keyToUse) {
+            keyToUse = anotherKey;
+            continue; // Réessayer immédiatement avec la nouvelle clé tournée
+          }
+        }
+
         // Si le modèle n'existe pas (404), on essaye le suivant dans l'échelle
         if (res.status === 404 || errMsg.toLowerCase().includes('not found')) {
           console.warn(`Modèle ${model} introuvable sur cette clé, passage au modèle suivant...`);
@@ -561,8 +787,8 @@ export async function generateApcExamWithGemini(params: ApcGenerationParams): Pr
         throw new Error("L'IA Gemini a renvoyé une réponse vide.");
       }
 
-      const cleaned = cleanJsonText(rawText);
-      const parsedData = JSON.parse(cleaned);
+      // Parsing avec moteur de réparation résilient
+      const parsedData = repairAndParseJson(rawText);
 
       // Normalisation de l'épreuve
       const exam: ApcExam = {
@@ -587,6 +813,11 @@ export async function generateApcExamWithGemini(params: ApcGenerationParams): Pr
         corrige: parsedData.corrige || { exerciceCorriges: [] },
         rawJson: rawText
       };
+
+      // Si c'est un utilisateur gratuit utilisant le pool, on incrémente son quota
+      if (!personalKey && !params.hasActivePass) {
+        incrementFreeExamsCount();
+      }
 
       // Sauvegarde dans l'historique local
       saveApcExamToHistory(exam);

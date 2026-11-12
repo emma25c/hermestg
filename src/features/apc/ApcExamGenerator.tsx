@@ -2,19 +2,23 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Sparkles, BookOpen, Download, Copy, Check, Printer, Key,
   RefreshCw, Sliders, CheckCircle2, AlertCircle, Trash2, History,
-  FileCheck, Shield, Eye, GraduationCap,
-  ExternalLink, ChevronDown, ChevronUp, Search
+  FileCheck, Shield, Eye, GraduationCap, Lock, Unlock,
+  ExternalLink, ChevronDown, ChevronUp, Search, Plus
 } from 'lucide-react';
 import {
   ApcExam,
   ApcGenerationParams,
   ApcLessonRef
 } from '../../types/apc';
+import { UserPass } from '../../types';
+import { isPassActive } from '../../lib/storage';
 import {
   CLASSES_META,
   DISCIPLINES_META,
   AVAILABLE_MODELS,
   DEFAULT_GEMINI_MODEL,
+  FREE_EXAMS_QUOTA,
+  getFreeExamsUsedCount,
   loadCurriculumCatalog,
   getDefaultExamMeta,
   getStoredGeminiApiKey,
@@ -25,11 +29,20 @@ import {
   deleteApcExamFromHistory,
   testGeminiApiKey,
   generateApcExamWithGemini,
-  getOfflineSampleExam
+  getOfflineSampleExam,
+  manageAiKeysInPool
 } from '../../lib/geminiApc';
 import { generateApcExamPdf } from './ApcExamPdf';
 
-export const ApcExamGenerator: React.FC = () => {
+interface ApcExamGeneratorProps {
+  userPass?: UserPass;
+  onOpenPassModal?: () => void;
+}
+
+export const ApcExamGenerator: React.FC<ApcExamGeneratorProps> = ({
+  userPass,
+  onOpenPassModal
+}) => {
   // --- États principaux ---
   const [selectedClasse, setSelectedClasse] = useState<string>('3e');
   const [selectedDiscipline, setSelectedDiscipline] = useState<string>('maths');
@@ -55,6 +68,20 @@ export const ApcExamGenerator: React.FC = () => {
   const [isKeyModalOpen, setIsKeyModalOpen] = useState<boolean>(false);
   const [testKeyStatus, setTestKeyStatus] = useState<{ testing: boolean; message: string; success?: boolean } | null>(null);
 
+  // Monétisation & Quota
+  const [freeExamsCount, setFreeExamsCount] = useState<number>(0);
+  const [isMonetizationModalOpen, setIsMonetizationModalOpen] = useState<boolean>(false);
+
+  // Espace Fondateur / Gestion du Pool de Clés Supabase
+  const [isFounderModalOpen, setIsFounderModalOpen] = useState<boolean>(false);
+  const [founderPinInput, setFounderPinInput] = useState<string>('');
+  const [isFounderUnlocked, setIsFounderUnlocked] = useState<boolean>(false);
+  const [poolKeys, setPoolKeys] = useState<any[]>([]);
+  const [isLoadingPool, setIsLoadingPool] = useState<boolean>(false);
+  const [newKeyInput, setNewKeyInput] = useState<string>('');
+  const [newKeyLabel, setNewKeyLabel] = useState<string>('');
+  const [founderMessage, setFounderMessage] = useState<{ text: string; isError?: boolean } | null>(null);
+
   // Génération
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [generationStep, setGenerationStep] = useState<string>('');
@@ -69,6 +96,8 @@ export const ApcExamGenerator: React.FC = () => {
   const [savedExams, setSavedExams] = useState<ApcExam[]>([]);
   const [showConfigDetails, setShowConfigDetails] = useState<boolean>(true);
 
+  const passActive = userPass ? isPassActive(userPass) : false;
+
   // Charger la clé et le modèle stockés au montage
   useEffect(() => {
     const storedKey = getStoredGeminiApiKey();
@@ -77,6 +106,7 @@ export const ApcExamGenerator: React.FC = () => {
     if (storedModel) setModel(storedModel);
 
     setSavedExams(getSavedApcExams());
+    setFreeExamsCount(getFreeExamsUsedCount());
 
     // Charger le catalogue officiel togolais
     loadCurriculumCatalog()
@@ -147,13 +177,63 @@ export const ApcExamGenerator: React.FC = () => {
     setIsKeyModalOpen(false);
   };
 
+  // Gestion du pool de clés dans Supabase
+  const loadPoolKeys = async (pin: string) => {
+    setIsLoadingPool(true);
+    setFounderMessage(null);
+    const res = await manageAiKeysInPool({ action: 'list', pin });
+    setIsLoadingPool(false);
+    if (res.success) {
+      setIsFounderUnlocked(true);
+      setPoolKeys(res.keys || []);
+    } else {
+      setFounderMessage({ text: res.error || 'Code PIN incorrect.', isError: true });
+    }
+  };
+
+  const handleAddKeyToPool = async () => {
+    if (!newKeyInput.trim()) return;
+    setIsLoadingPool(true);
+    const res = await manageAiKeysInPool({
+      action: 'add',
+      pin: founderPinInput,
+      key: newKeyInput.trim(),
+      label: newKeyLabel.trim() || 'Clé Gemini Gratuite'
+    });
+    setIsLoadingPool(false);
+    if (res.success) {
+      setNewKeyInput('');
+      setNewKeyLabel('');
+      setFounderMessage({ text: 'Clé ajoutée au pool de rotation avec succès !' });
+      loadPoolKeys(founderPinInput);
+    } else {
+      setFounderMessage({ text: res.error || 'Erreur lors de l’ajout.', isError: true });
+    }
+  };
+
+  const handleTogglePoolKey = async (keyId: string) => {
+    setIsLoadingPool(true);
+    await manageAiKeysInPool({ action: 'toggle', pin: founderPinInput, id: keyId });
+    setIsLoadingPool(false);
+    loadPoolKeys(founderPinInput);
+  };
+
+  const handleDeletePoolKey = async (keyId: string) => {
+    if (!confirm('Supprimer cette clé du pool ?')) return;
+    setIsLoadingPool(true);
+    await manageAiKeysInPool({ action: 'delete', pin: founderPinInput, id: keyId });
+    setIsLoadingPool(false);
+    loadPoolKeys(founderPinInput);
+  };
+
   // Lancement de la génération IA avec Gemini
   const handleGenerateExam = async () => {
     setErrorMessage(null);
 
+    // Contrôle préalable de monétisation
     const currentKey = apiKey.trim() || getStoredGeminiApiKey();
-    if (!currentKey) {
-      setIsKeyModalOpen(true);
+    if (!currentKey && !passActive && freeExamsCount >= FREE_EXAMS_QUOTA) {
+      setIsMonetizationModalOpen(true);
       return;
     }
 
@@ -171,7 +251,7 @@ export const ApcExamGenerator: React.FC = () => {
       session: session.trim() || 'Évaluation Sommative du 1er Trimestre',
       duree,
       coefficient,
-      apiKey: currentKey,
+      apiKey: currentKey || undefined,
       model
     };
 
@@ -184,14 +264,22 @@ export const ApcExamGenerator: React.FC = () => {
         setGenerationStep('3/3 : Élaboration de la grille critériée sur 8 points et du corrigé-type...');
       }, 5500);
 
-      const exam = await generateApcExamWithGemini(params);
+      const exam = await generateApcExamWithGemini({
+        ...params,
+        hasActivePass: passActive
+      });
       setCurrentExam(exam);
+      setFreeExamsCount(getFreeExamsUsedCount());
       setSavedExams(getSavedApcExams());
       setViewTab('epreuve');
-      setShowConfigDetails(false); // Réduire le formulaire pour montrer l'épreuve
+      setShowConfigDetails(false);
     } catch (err: any) {
       console.error('Erreur génération APC:', err);
-      setErrorMessage(err.message || 'Erreur lors de la communication avec l’IA Gemini.');
+      if (err.message && err.message.includes('MONETIZATION_LIMIT_REACHED')) {
+        setIsMonetizationModalOpen(true);
+      } else {
+        setErrorMessage(err.message || 'Erreur lors de la communication avec l’IA Gemini.');
+      }
     } finally {
       setIsGenerating(false);
       setGenerationStep('');
@@ -319,10 +407,21 @@ export const ApcExamGenerator: React.FC = () => {
                 <Sparkles size={13} className="text-amber-400" />
                 APC Togo 🇹🇬
               </span>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                <Shield size={12} />
-                100% Gratuit (0 FCFA)
-              </span>
+              {apiKey.trim() ? (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  <Key size={12} />
+                  Clé Personnelle Active (Illimité)
+                </span>
+              ) : passActive ? (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  <Shield size={12} />
+                  Pass Actif (Illimité • Pool Djanta)
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  🎁 Essai Gratuit : {Math.max(0, FREE_EXAMS_QUOTA - freeExamsCount)}/2 épreuves restantes
+                </span>
+              )}
               <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono bg-slate-800 text-slate-300 border border-slate-700">
                 Gemini Flash
               </span>
@@ -348,7 +447,19 @@ export const ApcExamGenerator: React.FC = () => {
               }`}
             >
               <Key size={14} />
-              {apiKey.trim() ? 'Clé Gemini Active' : 'Configurer Clé Gratuite'}
+              {apiKey.trim() ? 'Clé Personnelle' : 'Clé & Pool IA'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setIsFounderModalOpen(true);
+                setFounderMessage(null);
+              }}
+              className="p-2 bg-slate-800/80 hover:bg-slate-700 text-amber-400 hover:text-amber-300 rounded-xl border border-slate-700 transition-colors"
+              title="Espace Fondateur : Gestion du Pool de Clés Supabase"
+            >
+              <Lock size={16} />
             </button>
 
             <button
@@ -1197,29 +1308,44 @@ export const ApcExamGenerator: React.FC = () => {
               )}
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
               <button
                 type="button"
-                onClick={handleTestKey}
-                disabled={testKeyStatus?.testing}
-                className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                onClick={() => {
+                  setIsKeyModalOpen(false);
+                  setIsFounderModalOpen(true);
+                  setFounderMessage(null);
+                }}
+                className="text-[11px] text-amber-700 hover:text-amber-900 font-semibold flex items-center gap-1"
               >
-                Tester la clé
+                <Lock size={12} />
+                Pool Fondateur (Supabase)
               </button>
 
-              <button
-                type="button"
-                onClick={handleSaveKey}
-                className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white shadow-sm transition-all"
-              >
-                Enregistrer sur cet appareil
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleTestKey}
+                  disabled={testKeyStatus?.testing}
+                  className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                >
+                  Tester la clé
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSaveKey}
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white shadow-sm transition-all"
+                >
+                  Enregistrer
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* TIROIR / MODAL HISTORIQUE DES ÉPREUVES */}
+      {/* MODAL HISTORIQUE DES ÉPREUVES */}
       {isHistoryOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4">
@@ -1290,6 +1416,279 @@ export const ApcExamGenerator: React.FC = () => {
                 Fermer
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL MONÉTISATION : LIMITE D'ESSAI GRATUIT ATTEINTE */}
+      {isMonetizationModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="text-center space-y-2">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center mx-auto shadow-sm">
+                <Sparkles size={24} />
+              </div>
+              <h3 className="font-bold text-base sm:text-lg text-slate-900">
+                Quota d’essai gratuit atteint (2/2)
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Vous avez généré vos <strong>2 épreuves officielles gratuites</strong> offertes par Djanta Hub.
+                Pour continuer à créer des épreuves et corrigés conformes aux normes togolaises en illimité :
+              </p>
+            </div>
+
+            <div className="space-y-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMonetizationModalOpen(false);
+                  if (onOpenPassModal) {
+                    onOpenPassModal();
+                  }
+                }}
+                className="w-full p-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-between shadow-sm transition-all"
+              >
+                <div className="flex items-center gap-2">
+                  <Shield size={16} className="text-amber-400" />
+                  <span>Activer un Pass Djanta (dès 700 F)</span>
+                </div>
+                <span className="text-[10px] bg-amber-500 text-slate-950 px-2 py-0.5 rounded font-extrabold">
+                  Illimité
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMonetizationModalOpen(false);
+                  setIsKeyModalOpen(true);
+                }}
+                className="w-full p-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs flex items-center justify-between transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Key size={16} className="text-slate-500" />
+                  <span>Utiliser ma propre clé Gemini (0 FCFA)</span>
+                </div>
+                <span className="text-[10px] text-slate-500">
+                  Google AI
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMonetizationModalOpen(false);
+                  handleLoadDemo();
+                }}
+                className="w-full p-2.5 text-center text-xs text-slate-500 hover:text-slate-800 transition-colors"
+              >
+                Voir un sujet d'exemple hors-ligne
+              </button>
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 text-center">
+              <button
+                type="button"
+                onClick={() => setIsMonetizationModalOpen(false)}
+                className="text-xs text-slate-400 hover:text-slate-600"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL ESPACE FONDATEUR : GESTION DU POOL DE CLÉS SUPABASE */}
+      {isFounderModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-slate-900 text-amber-400 flex items-center justify-center font-bold">
+                  <Lock size={16} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm sm:text-base text-slate-900">
+                    Espace Fondateur : Pool de Clés Supabase
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Rotation automatique des clés Gemini pour monétiser Djanta Hub
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsFounderModalOpen(false);
+                  setIsFounderUnlocked(false);
+                }}
+                className="text-slate-400 hover:text-slate-600 p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            {!isFounderUnlocked ? (
+              /* ÉCRAN DE DÉVERROUILLAGE PIN */
+              <div className="space-y-3 py-3">
+                <p className="text-xs text-slate-600">
+                  Cet espace est strictement réservé au fondateur de Djanta Hub pour approvisionner le pool de clés API.
+                </p>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Code PIN Fondateur (Défaut : 2280) :
+                  </label>
+                  <input
+                    type="password"
+                    maxLength={8}
+                    placeholder="2280"
+                    value={founderPinInput}
+                    onChange={(e) => setFounderPinInput(e.target.value)}
+                    className="w-full px-3 py-2 text-center text-sm font-mono tracking-widest border border-slate-300 rounded-xl focus:outline-hidden focus:border-slate-900 bg-slate-50"
+                  />
+                </div>
+
+                {founderMessage && (
+                  <div className={`p-2 rounded-lg text-xs ${founderMessage.isError ? 'text-rose-700 bg-rose-50' : 'text-emerald-700 bg-emerald-50'}`}>
+                    {founderMessage.text}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => loadPoolKeys(founderPinInput)}
+                  disabled={isLoadingPool || !founderPinInput.trim()}
+                  className="w-full py-2.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white shadow-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isLoadingPool ? <RefreshCw size={14} className="animate-spin text-amber-400" /> : <Unlock size={14} />}
+                  <span>Déverrouiller le Gestionnaire de Pool</span>
+                </button>
+              </div>
+            ) : (
+              /* GESTION DU POOL DE CLÉS */
+              <div className="space-y-4">
+                <div className="bg-amber-50/70 p-3 rounded-xl border border-amber-200/80 text-xs text-slate-700 space-y-1">
+                  <p className="font-semibold text-slate-900">
+                    💡 Fonctionnement du Pool de Rotation Startup :
+                  </p>
+                  <p className="text-[11px] leading-relaxed">
+                    Ajoutez plusieurs clés Google AI Studio gratuites. Le système sélectionne automatiquement la clé la moins sollicitée (round-robin) pour servir les utilisateurs abonnés au Pass ou en essai gratuit.
+                  </p>
+                </div>
+
+                {/* FORMULAIRE AJOUT DE CLÉ */}
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                  <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <Plus size={14} className="text-amber-600" />
+                    <span>Ajouter une clé Gemini au pool :</span>
+                  </div>
+
+                  <input
+                    type="text"
+                    placeholder="Libellé (ex: Compte Gmail 1, Compte Frère 2...)"
+                    value={newKeyLabel}
+                    onChange={(e) => setNewKeyLabel(e.target.value)}
+                    className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white"
+                  />
+
+                  <input
+                    type="password"
+                    placeholder="Clé API (commence par AIzaSy...)"
+                    value={newKeyInput}
+                    onChange={(e) => setNewKeyInput(e.target.value)}
+                    className="w-full px-3 py-1.5 text-xs font-mono border border-slate-300 rounded-lg bg-white"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={handleAddKeyToPool}
+                    disabled={isLoadingPool || !newKeyInput.trim()}
+                    className="w-full py-2 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 transition-all disabled:opacity-50"
+                  >
+                    {isLoadingPool ? 'Ajout en cours...' : 'Ajouter au Pool de Rotation'}
+                  </button>
+                </div>
+
+                {founderMessage && (
+                  <div className={`p-2 rounded-lg text-xs ${founderMessage.isError ? 'text-rose-700 bg-rose-50' : 'text-emerald-700 bg-emerald-50'}`}>
+                    {founderMessage.text}
+                  </div>
+                )}
+
+                {/* LISTE DES CLÉS DANS LE POOL */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                    <span>Clés enregistrées ({poolKeys.length})</span>
+                    <button
+                      type="button"
+                      onClick={() => loadPoolKeys(founderPinInput)}
+                      className="text-slate-500 hover:text-slate-800 flex items-center gap-1 text-[11px]"
+                    >
+                      <RefreshCw size={11} className={isLoadingPool ? 'animate-spin' : ''} />
+                      Rafraîchir
+                    </button>
+                  </div>
+
+                  {poolKeys.length === 0 ? (
+                    <div className="py-4 text-center text-xs text-slate-400 italic">
+                      Aucune clé dans le pool pour l'instant. Ajoutez une première clé Google AI Studio ci-dessus.
+                    </div>
+                  ) : (
+                    <div className="max-h-52 overflow-y-auto space-y-2">
+                      {poolKeys.map((k) => (
+                        <div
+                          key={k.id}
+                          className="p-2.5 bg-white rounded-xl border border-slate-200 flex items-center justify-between gap-2 text-xs"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="font-semibold text-slate-900 truncate">
+                              {k.label}
+                            </div>
+                            <div className="text-[10px] text-slate-400 font-mono">
+                              {k.key_preview} • Utilisée {k.usage_count} fois
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleTogglePoolKey(k.id)}
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                k.is_active
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : 'bg-slate-200 text-slate-600'
+                              }`}
+                            >
+                              {k.is_active ? 'Actif' : 'Inactif'}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePoolKey(k.id)}
+                              className="p-1 text-slate-400 hover:text-rose-600"
+                              title="Supprimer cette clé"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 text-right">
+                  <button
+                    type="button"
+                    onClick={() => setIsFounderModalOpen(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700"
+                  >
+                    Fermer
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

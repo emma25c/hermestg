@@ -116,7 +116,12 @@ export const App: React.FC = () => {
               </button>
             </div>
 
-            {activeTool === 'apc_generator' && <ApcExamGenerator />}
+            {activeTool === 'apc_generator' && (
+              <ApcExamGenerator
+                userPass={userPass}
+                onOpenPassModal={() => setIsPassModalOpen(true)}
+              />
+            )}
             {activeTool === 'compressor' && <DocumentCompressor />}
             {activeTool === 'receipt' && <ReceiptGenerator />}
             {activeTool === 'simulator' && <FeeSimulator />}
