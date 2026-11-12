@@ -1,5 +1,9 @@
 export type TabType = 'outils' | 'formations' | 'services' | 'affiliation' | 'profil';
 
+export type ActiveToolType = 'compressor' | 'receipt' | 'simulator' | 'apc_generator';
+
+export * from './apc';
+
 export interface UserPass {
   status: 'free' | 'pass_7d' | 'pass_30d' | 'pass_90d';
   expiresAt: string | null;

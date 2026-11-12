@@ -1,18 +1,19 @@
 import React, { useState } from 'react';
-import { TabType, UserPass } from '../types';
+import { TabType, UserPass, ActiveToolType } from '../types';
 import { OfflineBadge } from './OfflineBadge';
 import { LionLogo } from './LionLogo';
 import { 
   Menu, X, FileText, Receipt, Smartphone, Compass, 
-  BookOpen, Briefcase, Users, ShieldCheck, ChevronRight, MessageCircle, User 
+  BookOpen, Briefcase, Users, ShieldCheck, ChevronRight, MessageCircle, User,
+  GraduationCap
 } from 'lucide-react';
 import { isPassActive } from '../lib/storage';
 
 interface NavbarProps {
   currentTab: TabType;
   onSelectTab: (tab: TabType) => void;
-  activeTool: 'compressor' | 'receipt' | 'simulator';
-  onSelectTool: (tool: 'compressor' | 'receipt' | 'simulator') => void;
+  activeTool: ActiveToolType;
+  onSelectTool: (tool: ActiveToolType) => void;
   userPass: UserPass;
   onOpenPassModal: () => void;
 }
@@ -28,7 +29,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const active = isPassActive(userPass);
 
-  const handleNavigate = (tab: TabType, tool?: 'compressor' | 'receipt' | 'simulator') => {
+  const handleNavigate = (tab: TabType, tool?: ActiveToolType) => {
     onSelectTab(tab);
     if (tool) {
       onSelectTool(tool);
@@ -213,6 +214,23 @@ export const Navbar: React.FC<NavbarProps> = ({
                       <span>Frais T-Money &amp; Flooz</span>
                     </div>
                     <ChevronRight size={14} className="text-slate-300" />
+                  </button>
+
+                  <button
+                    onClick={() => handleNavigate('outils', 'apc_generator')}
+                    className={`w-full p-2.5 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors ${
+                      currentTab === 'outils' && activeTool === 'apc_generator'
+                        ? 'bg-slate-900 text-white'
+                        : 'text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <GraduationCap size={16} className={currentTab === 'outils' && activeTool === 'apc_generator' ? 'text-amber-400' : 'text-slate-400'} />
+                      <span>Épreuves APC (IA Togo)</span>
+                    </div>
+                    <span className="text-[10px] font-bold bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded">
+                      Nouveau 🇹🇬
+                    </span>
                   </button>
                 </div>
               </div>
