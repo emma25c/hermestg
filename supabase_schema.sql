@@ -127,23 +127,29 @@ RETURNS TABLE (
   provider TEXT
 ) LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
-  selected_row public.ai_keys%ROWTYPE;
+  v_id UUID;
+  v_label TEXT;
+  v_api_key TEXT;
+  v_base_url TEXT;
+  v_model TEXT;
+  v_provider TEXT;
 BEGIN
-  SELECT * INTO selected_row
-  FROM public.ai_keys
-  WHERE is_active = true
-  ORDER BY usage_count ASC, last_used_at ASC NULLS FIRST
+  SELECT k.id, k.label, k.api_key, k.base_url, k.model, k.provider
+  INTO v_id, v_label, v_api_key, v_base_url, v_model, v_provider
+  FROM public.ai_keys k
+  WHERE k.is_active = true
+  ORDER BY k.usage_count ASC, k.last_used_at ASC NULLS FIRST
   LIMIT 1
   FOR UPDATE SKIP LOCKED;
 
-  IF FOUND THEN
+  IF v_id IS NOT NULL THEN
     UPDATE public.ai_keys
     SET usage_count = usage_count + 1,
         last_used_at = timezone('utc'::text, now())
-    WHERE id = selected_row.id;
+    WHERE public.ai_keys.id = v_id;
 
     RETURN QUERY
-    SELECT selected_row.id, selected_row.label, selected_row.api_key, selected_row.base_url, selected_row.model, selected_row.provider;
+    SELECT v_id, v_label, v_api_key, v_base_url, v_model, v_provider;
   END IF;
 END;
 $$;

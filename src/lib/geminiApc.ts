@@ -795,127 +795,133 @@ export async function generateApcExamWithGemini(
   const systemPrompt = buildApcSystemPrompt(params.discipline, params.classe);
   const userPrompt = buildApcUserPrompt(params);
 
-  // Détection du mode d'appel : OpenAI compatible (Groq, OpenRouter, DeepSeek, custom URL) ou Gemini natif
-  const isCustomOpenAi =
-    activeKeyConfig.provider === 'openai' ||
-    (activeKeyConfig.baseUrl && !activeKeyConfig.baseUrl.includes('googleapis.com'));
-
   let rawText = '';
+  let lastGeneralError: Error | null = null;
 
-  if (isCustomOpenAi) {
-    // === MODE COMPATIBLE OPENAI (Groq, OpenRouter, DeepSeek, Mistral, Ollama, Proxy custom) ===
-    let endpoint = (activeKeyConfig.baseUrl || 'https://api.openai.com/v1').trim().replace(/\/+$/, '');
-    if (!endpoint.endsWith('/chat/completions')) {
-      endpoint = `${endpoint}/chat/completions`;
+  for (let poolAttempt = 0; poolAttempt < 3; poolAttempt++) {
+    if (!activeKeyConfig || !activeKeyConfig.apiKey) {
+      activeKeyConfig = await fetchRotatedAiKeyFromPool();
     }
+    if (!activeKeyConfig || !activeKeyConfig.apiKey) break;
 
-    const modelName = activeKeyConfig.model || params.model || 'gpt-4o-mini';
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${activeKeyConfig.apiKey}`
-    };
-    if (endpoint.includes('openrouter.ai')) {
-      headers['HTTP-Referer'] = 'https://djanthub.tg';
-      headers['X-Title'] = 'Djanta Hub';
-    }
+    const isCustomOpenAi =
+      activeKeyConfig.provider === 'openai' ||
+      (activeKeyConfig.baseUrl && !activeKeyConfig.baseUrl.includes('googleapis.com'));
 
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        model: modelName,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature: 0.1,
-        response_format: { type: 'json_object' }
-      })
-    });
+    try {
+      if (isCustomOpenAi) {
+        // === MODE COMPATIBLE OPENAI (Groq, OpenRouter, FreeModel, DeepSeek, etc.) ===
+        let endpoint = (activeKeyConfig.baseUrl || 'https://api.openai.com/v1').trim().replace(/\/+$/, '');
+        if (!endpoint.endsWith('/chat/completions')) {
+          endpoint = `${endpoint}/chat/completions`;
+        }
 
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      const errMsg = errData?.error?.message || errData?.message || `HTTP ${res.status}`;
-      throw new Error(`Erreur API IA (${res.status}): ${errMsg}`);
-    }
-
-    const jsonRes = await res.json();
-    rawText = jsonRes?.choices?.[0]?.message?.content || '';
-  } else {
-    // === MODE GOOGLE GEMINI NATIF REST ===
-    const modelsToTry = [
-      activeKeyConfig.model || params.model || getStoredGeminiModel() || DEFAULT_GEMINI_MODEL,
-      'gemini-2.5-flash',
-      'gemini-1.5-flash',
-      'gemini-2.0-flash'
-    ];
-    const uniqueModels = Array.from(new Set(modelsToTry));
-    let lastError: Error | null = null;
-    const baseGeminiUrl = (activeKeyConfig.baseUrl || 'https://generativelanguage.googleapis.com').replace(/\/+$/, '');
-
-    for (const model of uniqueModels) {
-      try {
-        const endpoint = `${baseGeminiUrl}/v1beta/models/${model}:generateContent?key=${activeKeyConfig.apiKey.trim()}`;
+        const modelName = activeKeyConfig.model || params.model || 'gpt-4o-mini';
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${activeKeyConfig.apiKey}`
+        };
+        if (endpoint.includes('openrouter.ai')) {
+          headers['HTTP-Referer'] = 'https://djanthub.tg';
+          headers['X-Title'] = 'Djanta Hub';
+        }
 
         const res = await fetch(endpoint, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({
-            contents: [
-              {
-                role: 'user',
-                parts: [{ text: userPrompt }]
-              }
+            model: modelName,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt }
             ],
-            systemInstruction: {
-              parts: [{ text: systemPrompt }]
-            },
-            generationConfig: {
-              temperature: 0.1,
-              maxOutputTokens: 8192,
-              responseMimeType: 'application/json'
-            }
+            temperature: 0.1,
+            response_format: { type: 'json_object' }
           })
         });
 
         if (!res.ok) {
-          const errorData = await res.json().catch(() => ({}));
-          const errMsg = errorData?.error?.message || `HTTP ${res.status}`;
-
-          // En cas de saturation quota (429) ou problème de clé sur le pool, faire une rotation automatique !
-          if (res.status === 429 || res.status === 403) {
-            console.warn(`Clé du pool saturée (${res.status}), rotation automatique vers une autre clé...`);
-            const anotherKeyConfig = await fetchRotatedAiKeyFromPool();
-            if (anotherKeyConfig && anotherKeyConfig.apiKey !== activeKeyConfig.apiKey) {
-              activeKeyConfig = anotherKeyConfig;
-              continue; // Réessayer immédiatement avec la nouvelle clé
-            }
-          }
-
-          // Si le modèle n'existe pas (404), on essaye le suivant dans l'échelle
-          if (res.status === 404 || errMsg.toLowerCase().includes('not found')) {
-            console.warn(`Modèle ${model} introuvable sur cette clé, passage au modèle suivant...`);
-            continue;
-          }
-          throw new Error(`Erreur Gemini (${res.status}): ${errMsg}`);
+          const errData = await res.json().catch(() => ({}));
+          const errMsg = errData?.error?.message || errData?.message || `HTTP ${res.status}`;
+          console.warn(`Erreur API (${res.status}): ${errMsg}, rotation vers une autre clé...`);
+          lastGeneralError = new Error(`Erreur API IA (${res.status}): ${errMsg}`);
+          activeKeyConfig = null;
+          continue;
         }
 
-        const jsonResponse = await res.json();
-        rawText = jsonResponse?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const jsonRes = await res.json();
+        rawText = jsonRes?.choices?.[0]?.message?.content || '';
         if (rawText) break;
-      } catch (err: any) {
-        lastError = err;
-        console.warn(`Tentative avec ${model} a échoué:`, err);
-      }
-    }
+      } else {
+        // === MODE GOOGLE GEMINI NATIF REST ===
+        const modelsToTry = [
+          activeKeyConfig.model || params.model || getStoredGeminiModel() || DEFAULT_GEMINI_MODEL,
+          'gemini-2.5-flash',
+          'gemini-1.5-flash',
+          'gemini-2.0-flash'
+        ];
+        const uniqueModels = Array.from(new Set(modelsToTry));
+        const baseGeminiUrl = (activeKeyConfig.baseUrl || 'https://generativelanguage.googleapis.com').replace(/\/+$/, '');
 
-    if (!rawText && lastError) {
-      throw lastError;
+        for (const model of uniqueModels) {
+          try {
+            const endpoint = `${baseGeminiUrl}/v1beta/models/${model}:generateContent?key=${activeKeyConfig.apiKey.trim()}`;
+
+            const res = await fetch(endpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [
+                  {
+                    role: 'user',
+                    parts: [{ text: userPrompt }]
+                  }
+                ],
+                systemInstruction: {
+                  parts: [{ text: systemPrompt }]
+                },
+                generationConfig: {
+                  temperature: 0.1,
+                  maxOutputTokens: 8192,
+                  responseMimeType: 'application/json'
+                }
+              })
+            });
+
+            if (!res.ok) {
+              const errorData = await res.json().catch(() => ({}));
+              const errMsg = errorData?.error?.message || `HTTP ${res.status}`;
+
+              if (res.status === 404 || errMsg.toLowerCase().includes('not found')) {
+                console.warn(`Modèle ${model} introuvable sur cette clé, passage au modèle suivant...`);
+                continue;
+              }
+              throw new Error(`Erreur Gemini (${res.status}): ${errMsg}`);
+            }
+
+            const jsonResponse = await res.json();
+            rawText = jsonResponse?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            if (rawText) break;
+          } catch (err: any) {
+            lastGeneralError = err;
+            console.warn(`Tentative avec ${model} a échoué:`, err);
+          }
+        }
+
+        if (rawText) break;
+        activeKeyConfig = null;
+      }
+    } catch (err: any) {
+      lastGeneralError = err;
+      activeKeyConfig = null;
     }
   }
 
   if (!rawText) {
-    throw new Error("L'IA a renvoyé une réponse vide.");
+    if (lastGeneralError) throw lastGeneralError;
+    throw new Error(
+      'Le service de génération IA est momentanément indisponible. Le pool de clés est en cours de réapprovisionnement. Veuillez réessayer dans un instant ou contacter le support Djanta Hub.'
+    );
   }
 
   // Parsing avec moteur de réparation résilient
