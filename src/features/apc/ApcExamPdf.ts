@@ -1,7 +1,23 @@
 import { jsPDF } from 'jspdf';
 import { ApcExam } from '../../types/apc';
+import { formatApcExamForPdf, formatMathForPdf } from '../../lib/mathFormatter';
 
-export function generateApcExamPdf(exam: ApcExam): { blob: Blob; url: string; fileName: string } {
+/**
+ * Génère un document PDF A4 haute définition, officiel et rigoureusement calibré
+ * pour les épreuves scolaires togolaises en Approche Par Compétences (APC).
+ *
+ * Garanties structurelles :
+ * 1. Zéro débordement de page A4 : pagination dynamique ligne par ligne avec coupure de page automatique.
+ * 2. Zéro débordement horizontal : tous les énoncés, titres et choix de QCM sont strictement tronçonnés à la largeur imprimable.
+ * 3. Typographie mathématique officielle et sécurisée pour Helvetica :
+ *    - Caractères Windows-1252 natifs (×, ÷, ², ³, ¹, ±, °, µ, •)
+ *    - Translitérations académiques pour les symboles hors Windows-1252 (racine, <=, >=, !=, ^(4), u_n, etc.)
+ *    évitant toute corruption visuelle dans les lecteurs PDF.
+ */
+export function generateApcExamPdf(rawExam: ApcExam): { blob: Blob; url: string; fileName: string } {
+  // 1. Formatage mathématique préalable de toute l'épreuve sécurisé pour la police Helvetica (Windows-1252)
+  const exam = formatApcExamForPdf(rawExam);
+
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -11,16 +27,41 @@ export function generateApcExamPdf(exam: ApcExam): { blob: Blob; url: string; fi
   const pageWidth = 210;
   const pageHeight = 297;
   const margin = 16;
-  const contentWidth = pageWidth - margin * 2;
+  const contentWidth = pageWidth - margin * 2; // 178 mm
+  const maxY = pageHeight - 18; // 279 mm (laisse 11 mm avant le pied de page)
+  const topY = 16;
   let y = 14;
 
-  const checkPageBreak = (neededHeight: number) => {
-    if (y + neededHeight > pageHeight - 18) {
+  /**
+   * Assure qu'un espace vertical minimal est disponible sur la page active,
+   * sinon passe proprement à la page suivante.
+   */
+  const ensureSpace = (neededHeight: number): boolean => {
+    if (y + neededHeight > maxY) {
       doc.addPage();
-      y = 16;
+      y = topY;
       return true;
     }
     return false;
+  };
+
+  /**
+   * Imprime un tableau de lignes de texte en gérant la pagination automatique
+   * ligne par ligne pour interdire tout débordement en bas de page A4.
+   */
+  const printWrappedLines = (
+    lines: string[],
+    x: number,
+    lineHeight = 4.2
+  ): void => {
+    for (const line of lines) {
+      if (y + lineHeight > maxY) {
+        doc.addPage();
+        y = topY;
+      }
+      doc.text(line, x, y);
+      y += lineHeight;
+    }
   };
 
   // ==========================================
@@ -43,14 +84,18 @@ export function generateApcExamPdf(exam: ApcExam): { blob: Blob; url: string; fi
   // Colonne Droite : Établissement & Année
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
-  doc.text(exam.etablissement.toUpperCase(), pageWidth - margin, y, { align: 'right' });
+  const etablissementName = (exam.etablissement || 'LYCÉE').toUpperCase();
+  const etablissementLines = doc.splitTextToSize(etablissementName, 75);
+  doc.text(etablissementLines, pageWidth - margin, y, { align: 'right' });
+  
+  const rightOffset = (etablissementLines.length - 1) * 3.5;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
-  doc.text(`Année scolaire : ${exam.anneeScolaire}`, pageWidth - margin, y + 4, { align: 'right' });
-  doc.text(`Session : ${exam.session}`, pageWidth - margin, y + 8, { align: 'right' });
-  doc.text(`Date : ${new Date().toLocaleDateString('fr-FR')}`, pageWidth - margin, y + 12, { align: 'right' });
+  doc.text(`Année scolaire : ${exam.anneeScolaire || '2025 - 2026'}`, pageWidth - margin, y + 4 + rightOffset, { align: 'right' });
+  doc.text(`Session : ${exam.session || 'Session Ordinaire'}`, pageWidth - margin, y + 8 + rightOffset, { align: 'right' });
+  doc.text(`Date : ${new Date().toLocaleDateString('fr-FR')}`, pageWidth - margin, y + 12 + rightOffset, { align: 'right' });
 
-  y += 20;
+  y += Math.max(20, 16 + rightOffset + 4);
 
   // Ligne de séparation fine
   doc.setDrawColor(203, 213, 225); // slate-300
@@ -60,9 +105,15 @@ export function generateApcExamPdf(exam: ApcExam): { blob: Blob; url: string; fi
   y += 5;
 
   // ==========================================
-  // 2. CARTOUCHE D'EXAMEN ENCADRÉ
+  // 2. CARTOUCHE D'EXAMEN ENCADRÉ DYNAMIQUE
   // ==========================================
-  const boxHeight = 15;
+  const discLine = `ÉPREUVE DE : ${(exam.disciplineLabel || 'DISCIPLINE').toUpperCase()}`;
+  const detailsLine = `CLASSE : ${exam.classeLabel || ''}   |   DURÉE : ${exam.duree || ''}   |   COEFFICIENT : ${exam.coefficient || ''}`;
+  
+  doc.setFontSize(8);
+  const isDetailsWide = doc.getTextWidth(detailsLine) > contentWidth - 10;
+  const boxHeight = isDetailsWide ? 19 : 15;
+
   doc.setFillColor(248, 250, 252); // slate-50
   doc.setDrawColor(15, 23, 42); // slate-900
   doc.setLineWidth(0.8);
@@ -70,94 +121,156 @@ export function generateApcExamPdf(exam: ApcExam): { blob: Blob; url: string; fi
 
   doc.setTextColor(15, 23, 42);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.text(`ÉPREUVE DE : ${exam.disciplineLabel.toUpperCase()}`, margin + 5, y + 6);
-
-  doc.setFontSize(8.5);
-  doc.setFont('helvetica', 'normal');
-  const detailsLine = `CLASSE : ${exam.classeLabel}   |   DURÉE : ${exam.duree}   |   COEFFICIENT : ${exam.coefficient}`;
-  doc.text(detailsLine, margin + 5, y + 11.5);
-
-  y += boxHeight + 8;
-
-  // Titre de l'épreuve
-  doc.setFont('helvetica', 'bold');
   doc.setFontSize(10.5);
-  doc.setTextColor(30, 41, 59);
-  doc.text(exam.titre.toUpperCase(), pageWidth / 2, y, { align: 'center' });
+  doc.text(discLine, margin + 5, y + 5.5);
 
-  y += 8;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  if (isDetailsWide) {
+    doc.text(`CLASSE : ${exam.classeLabel || ''}   |   DURÉE : ${exam.duree || ''}`, margin + 5, y + 10.5);
+    doc.text(`COEFFICIENT : ${exam.coefficient || ''}   |   TOTAL : ${exam.totalPoints || 20} POINTS`, margin + 5, y + 15);
+  } else {
+    doc.text(detailsLine, margin + 5, y + 11);
+  }
+
+  y += boxHeight + 6;
+
+  // Titre de l'épreuve centré et découpé sur mesure
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(30, 41, 59);
+  const titreLines = doc.splitTextToSize((exam.titre || 'ÉPREUVE OFFICIELLE APC').toUpperCase(), contentWidth - 12);
+  for (const line of titreLines) {
+    ensureSpace(4.5);
+    doc.text(line, pageWidth / 2, y, { align: 'center' });
+    y += 4.5;
+  }
+
+  y += 4;
 
   // ==========================================
   // 3. EXERCICES (ÉVALUATION DES RESSOURCES)
   // ==========================================
   for (const exo of exam.exercices) {
-    checkPageBreak(25);
+    // Calcul de la taille du bandeau de titre d'exercice
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    const ptsBannerText = `(${exo.points} pt${exo.points > 1 ? 's' : ''})`;
+    const ptsBannerWidth = doc.getTextWidth(ptsBannerText) + 4;
+    const maxExoTitleWidth = contentWidth - ptsBannerWidth - 8;
+    const exoTitleLines = doc.splitTextToSize(exo.titre.toUpperCase(), maxExoTitleWidth);
+    const bannerHeight = Math.max(7, exoTitleLines.length * 4.2 + 2.5);
+
+    ensureSpace(bannerHeight + 10);
 
     // Titre de l'exercice avec fond gris discret
     doc.setFillColor(241, 245, 249); // slate-100
-    doc.rect(margin, y, contentWidth, 7, 'F');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
+    doc.rect(margin, y, contentWidth, bannerHeight, 'F');
     doc.setTextColor(15, 23, 42);
-    doc.text(exo.titre.toUpperCase(), margin + 3, y + 5);
+    
+    let curTitleY = y + 4.8;
+    for (const tl of exoTitleLines) {
+      doc.text(tl, margin + 3, curTitleY);
+      curTitleY += 4.2;
+    }
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    doc.text(`(${exo.points} pts)`, pageWidth - margin - 3, y + 5, { align: 'right' });
+    doc.text(ptsBannerText, pageWidth - margin - 3, y + 4.8, { align: 'right' });
 
-    y += 10;
+    y += bannerHeight + 3.5;
 
+    // Introduction / consigne générale de l'exercice
     if (exo.intro) {
       doc.setFont('helvetica', 'italic');
       doc.setFontSize(8);
       doc.setTextColor(71, 85, 105);
       const introLines = doc.splitTextToSize(exo.intro, contentWidth);
-      checkPageBreak(introLines.length * 4);
-      doc.text(introLines, margin, y);
-      y += introLines.length * 4 + 2;
+      printWrappedLines(introLines, margin, 3.8);
+      y += 2.5;
     }
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
     doc.setTextColor(15, 23, 42);
 
+    // Questions de l'exercice
     for (const q of exo.questions) {
-      const qPrefix = `${q.numero} `;
-      const enonceLines = doc.splitTextToSize(`${qPrefix}${q.enonce}`, contentWidth - 16);
-      checkPageBreak(enonceLines.length * 4.5 + 4);
-
+      const numStr = q.numero;
       doc.setFont('helvetica', 'bold');
-      doc.text(q.numero, margin, y);
-      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      const numWidth = doc.getTextWidth(numStr) + 2.5;
 
-      // Énoncé sans le numéro
-      const textLines = doc.splitTextToSize(q.enonce, contentWidth - 24);
-      doc.text(textLines, margin + 8, y);
-
-      // Points à droite
+      const ptsText = `[${q.points} pt${q.points > 1 ? 's' : ''}]`;
       doc.setFont('helvetica', 'italic');
       doc.setFontSize(7.5);
-      doc.setTextColor(100, 116, 139);
-      doc.text(`[${q.points} pt${q.points > 1 ? 's' : ''}]`, pageWidth - margin, y, { align: 'right' });
+      const ptsWidth = doc.getTextWidth(ptsText) + 2;
+
+      // Calcul de la zone exacte réservée au texte de la question
+      const enonceX = margin + Math.max(7, numWidth);
+      const maxEnonceWidth = (pageWidth - margin - ptsWidth) - enonceX - 2;
+
+      doc.setFont('helvetica', 'normal');
       doc.setFontSize(8.5);
-      doc.setTextColor(15, 23, 42);
+      const textLines = doc.splitTextToSize(q.enonce, maxEnonceWidth);
 
-      y += textLines.length * 4.5 + 2;
+      // S'assurer qu'au moins la première ligne peut être imprimée
+      ensureSpace(textLines.length > 0 ? 5 : 4);
 
-      // Choix pour QCM
+      for (let li = 0; li < textLines.length; li++) {
+        if (y + 4.3 > maxY) {
+          doc.addPage();
+          y = topY;
+        }
+
+        if (li === 0) {
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(8.5);
+          doc.setTextColor(15, 23, 42);
+          doc.text(numStr, margin, y);
+
+          doc.setFont('helvetica', 'italic');
+          doc.setFontSize(7.5);
+          doc.setTextColor(100, 116, 139);
+          doc.text(ptsText, pageWidth - margin, y, { align: 'right' });
+        }
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8.5);
+        doc.setTextColor(15, 23, 42);
+        doc.text(textLines[li], enonceX, y);
+        y += 4.3;
+      }
+
+      y += 1.5;
+
+      // Choix pour QCM (découpe stricte anti-débordement)
       if (q.choix && q.choix.length > 0) {
         for (const ch of q.choix) {
-          checkPageBreak(5);
+          const bulletPrefix = '• ';
+          doc.setFont('helvetica', 'normal');
           doc.setFontSize(8);
-          doc.text(`• ${ch}`, margin + 12, y);
-          y += 4.2;
+          doc.setTextColor(51, 65, 85);
+          const bWidth = doc.getTextWidth(bulletPrefix) + 1;
+          const choiceLines = doc.splitTextToSize(ch, contentWidth - 18 - bWidth);
+
+          for (let cli = 0; cli < choiceLines.length; cli++) {
+            if (y + 4.0 > maxY) {
+              doc.addPage();
+              y = topY;
+            }
+            if (cli === 0) {
+              doc.text(bulletPrefix, margin + 12, y);
+            }
+            doc.text(choiceLines[cli], margin + 12 + bWidth, y);
+            y += 4.0;
+          }
         }
         y += 1.5;
       }
     }
 
-    y += 4;
+    y += 3;
   }
 
   // ==========================================
@@ -165,50 +278,101 @@ export function generateApcExamPdf(exam: ApcExam): { blob: Blob; url: string; fi
   // ==========================================
   if (exam.situationIntegration) {
     const sit = exam.situationIntegration;
-    checkPageBreak(40);
 
-    // Titre de la situation
-    doc.setFillColor(241, 245, 249);
-    doc.rect(margin, y, contentWidth, 7, 'F');
+    // Bandeau titre de la situation
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
+    const ptsSitText = '(8 points)';
+    const ptsSitWidth = doc.getTextWidth(ptsSitText) + 4;
+    const maxSitTitleWidth = contentWidth - ptsSitWidth - 8;
+    const sitTitleLines = doc.splitTextToSize(sit.titre.toUpperCase(), maxSitTitleWidth);
+    const sitBannerHeight = Math.max(7, sitTitleLines.length * 4.2 + 2.5);
+
+    ensureSpace(sitBannerHeight + 15);
+
+    doc.setFillColor(241, 245, 249);
+    doc.rect(margin, y, contentWidth, sitBannerHeight, 'F');
     doc.setTextColor(15, 23, 42);
-    doc.text(sit.titre.toUpperCase(), margin + 3, y + 5);
+    
+    let curSitY = y + 4.8;
+    for (const st of sitTitleLines) {
+      doc.text(st, margin + 3, curSitY);
+      curSitY += 4.2;
+    }
+
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    doc.text('(8 points)', pageWidth - margin - 3, y + 5, { align: 'right' });
+    doc.text(ptsSitText, pageWidth - margin - 3, y + 4.8, { align: 'right' });
 
-    y += 11;
+    y += sitBannerHeight + 4;
 
-    // Contexte narratif dans un encadré léger
+    // Contexte narratif : affichage sécurisé anti-débordement
     doc.setFont('helvetica', 'italic');
     doc.setFontSize(8);
     doc.setTextColor(30, 41, 59);
-    const contexteLines = doc.splitTextToSize(sit.contexte, contentWidth - 8);
-    const contexteHeight = contexteLines.length * 4 + 6;
+    const contexteLines = doc.splitTextToSize(sit.contexte, contentWidth - 10);
+    const neededContextHeight = contexteLines.length * 4.0 + 8;
 
-    checkPageBreak(contexteHeight + 10);
-    doc.setFillColor(248, 250, 252);
-    doc.setDrawColor(203, 213, 225);
-    doc.setLineWidth(0.4);
-    doc.rect(margin, y, contentWidth, contexteHeight, 'FD');
-    doc.text(contexteLines, margin + 4, y + 5);
-
-    y += contexteHeight + 4;
+    if (neededContextHeight <= (maxY - topY) * 0.85) {
+      // Le contexte tient sur une page : on s'assure d'avoir la place pour le rectangle complet
+      ensureSpace(neededContextHeight);
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(203, 213, 225);
+      doc.setLineWidth(0.4);
+      doc.rect(margin, y, contentWidth, neededContextHeight, 'FD');
+      
+      let textPosY = y + 5;
+      for (const line of contexteLines) {
+        doc.text(line, margin + 5, textPosY);
+        textPosY += 4.0;
+      }
+      y += neededContextHeight + 4;
+    } else {
+      // Contexte très long : impression continue avec barre latérale
+      for (const line of contexteLines) {
+        if (y + 4.0 > maxY) {
+          doc.addPage();
+          y = topY;
+        }
+        doc.setDrawColor(15, 23, 42);
+        doc.setLineWidth(0.8);
+        doc.line(margin + 2, y - 3, margin + 2, y + 1);
+        doc.text(line, margin + 6, y);
+        y += 4.0;
+      }
+      y += 4;
+    }
 
     // Données clés
     if (sit.donnees) {
-      checkPageBreak(12);
+      ensureSpace(10);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
-      doc.text('Données utiles :', margin, y);
+      doc.setTextColor(15, 23, 42);
+      const donneesLabel = 'Données utiles : ';
+      const dLabelWidth = doc.getTextWidth(donneesLabel);
+
       doc.setFont('helvetica', 'normal');
-      const donneesLines = doc.splitTextToSize(sit.donnees, contentWidth - 25);
-      doc.text(donneesLines, margin + 25, y);
-      y += donneesLines.length * 4 + 4;
+      const donneesLines = doc.splitTextToSize(sit.donnees, contentWidth - dLabelWidth - 4);
+      
+      for (let di = 0; di < donneesLines.length; di++) {
+        if (y + 4.0 > maxY) {
+          doc.addPage();
+          y = topY;
+        }
+        if (di === 0) {
+          doc.setFont('helvetica', 'bold');
+          doc.text(donneesLabel, margin + 2, y);
+          doc.setFont('helvetica', 'normal');
+        }
+        doc.text(donneesLines[di], margin + 2 + dLabelWidth, y);
+        y += 4.0;
+      }
+      y += 3;
     }
 
     // Consignes indépendantes
+    ensureSpace(12);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
     doc.setTextColor(15, 23, 42);
@@ -216,49 +380,91 @@ export function generateApcExamPdf(exam: ApcExam): { blob: Blob; url: string; fi
     y += 5;
 
     for (const cons of sit.consignes) {
-      const cLines = doc.splitTextToSize(`Consigne ${cons.numero} : ${cons.enonce}`, contentWidth - 20);
-      checkPageBreak(cLines.length * 4.5 + 4);
-
+      const consPrefix = `Consigne ${cons.numero} :`;
       doc.setFont('helvetica', 'bold');
-      doc.text(`Consigne ${cons.numero} :`, margin + 3, y);
-      doc.setFont('helvetica', 'normal');
-      const txtLines = doc.splitTextToSize(cons.enonce, contentWidth - 28);
-      doc.text(txtLines, margin + 25, y);
+      doc.setFontSize(8.5);
+      const cPrefWidth = doc.getTextWidth(consPrefix) + 3;
 
+      const consBarText = `[${cons.bareme} pt${cons.bareme > 1 ? 's' : ''}]`;
       doc.setFont('helvetica', 'italic');
       doc.setFontSize(7.5);
-      doc.setTextColor(100, 116, 139);
-      doc.text(`[${cons.bareme} pts]`, pageWidth - margin, y, { align: 'right' });
-      doc.setFontSize(8.5);
-      doc.setTextColor(15, 23, 42);
+      const cBarWidth = doc.getTextWidth(consBarText) + 2;
 
-      y += txtLines.length * 4.5 + 3;
+      const consX = margin + 3 + cPrefWidth;
+      const maxConsWidth = (pageWidth - margin - cBarWidth) - consX - 2;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      const txtLines = doc.splitTextToSize(cons.enonce, maxConsWidth);
+
+      ensureSpace(txtLines.length > 0 ? 5 : 4);
+
+      for (let ci = 0; ci < txtLines.length; ci++) {
+        if (y + 4.3 > maxY) {
+          doc.addPage();
+          y = topY;
+        }
+        if (ci === 0) {
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(8.5);
+          doc.setTextColor(15, 23, 42);
+          doc.text(consPrefix, margin + 3, y);
+
+          doc.setFont('helvetica', 'italic');
+          doc.setFontSize(7.5);
+          doc.setTextColor(100, 116, 139);
+          doc.text(consBarText, pageWidth - margin, y, { align: 'right' });
+        }
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8.5);
+        doc.setTextColor(15, 23, 42);
+        doc.text(txtLines[ci], consX, y);
+        y += 4.3;
+      }
+      y += 2.5;
     }
 
     // Grille critériée officielle sur 8 points
     if (sit.grilleCorrection && sit.grilleCorrection.length > 0) {
-      checkPageBreak(30);
+      ensureSpace(20);
       y += 2;
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
       doc.setTextColor(71, 85, 105);
       doc.text('Grille critériée d’évaluation officielle (8 points) :', margin, y);
-      y += 4;
-
-      doc.setDrawColor(226, 232, 240);
-      doc.setLineWidth(0.3);
+      y += 4.5;
 
       for (const g of sit.grilleCorrection) {
-        checkPageBreak(7);
+        const critLabel = `• ${g.critere} (${g.bareme} pt) :`;
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(7.5);
-        doc.setTextColor(15, 23, 42);
-        doc.text(`• ${g.critere} (${g.bareme} pt) :`, margin + 3, y);
+        const cLabelWidth = doc.getTextWidth(critLabel) + 3;
+
         doc.setFont('helvetica', 'normal');
-        doc.setTextColor(51, 65, 85);
-        const indLines = doc.splitTextToSize(g.indicateurs, contentWidth - 55);
-        doc.text(indLines, margin + 48, y);
-        y += indLines.length * 3.5 + 2;
+        const maxIndWidth = contentWidth - cLabelWidth - 8;
+        const indLines = doc.splitTextToSize(g.indicateurs, maxIndWidth);
+        const rowHeight = indLines.length * 3.6 + 2;
+
+        ensureSpace(rowHeight);
+
+        for (let gi = 0; gi < indLines.length; gi++) {
+          if (y + 3.6 > maxY) {
+            doc.addPage();
+            y = topY;
+          }
+          if (gi === 0) {
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7.5);
+            doc.setTextColor(15, 23, 42);
+            doc.text(critLabel, margin + 3, y);
+          }
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(51, 65, 85);
+          doc.text(indLines[gi], margin + 3 + cLabelWidth, y);
+          y += 3.6;
+        }
+        y += 1.5;
       }
     }
   }
@@ -267,9 +473,9 @@ export function generateApcExamPdf(exam: ApcExam): { blob: Blob; url: string; fi
   // 5. NOUVELLE PAGE : CORRIGÉ-TYPE OFFICIEL
   // ==========================================
   doc.addPage();
-  y = 16;
+  y = topY;
 
-  // En-tête corrigé
+  // En-tête corrigé officiel
   doc.setFillColor(15, 23, 42);
   doc.rect(margin, y, contentWidth, 10, 'F');
   doc.setTextColor(255, 255, 255);
@@ -277,39 +483,68 @@ export function generateApcExamPdf(exam: ApcExam): { blob: Blob; url: string; fi
   doc.setFontSize(9.5);
   doc.text('CORRIGÉ-TYPE OFFICIEL & GRILLE DE NOTATION', pageWidth / 2, y + 6.5, { align: 'center' });
 
-  y += 16;
+  y += 15;
 
   doc.setTextColor(30, 41, 59);
 
   // Corrigé des exercices
   for (const exCorr of exam.corrige.exerciceCorriges) {
-    checkPageBreak(18);
+    ensureSpace(16);
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.setTextColor(15, 23, 42);
-    doc.text(exCorr.titre.toUpperCase(), margin, y);
-    y += 5;
+    const exCorrTitleLines = doc.splitTextToSize(exCorr.titre.toUpperCase(), contentWidth - 4);
+    for (const tl of exCorrTitleLines) {
+      doc.text(tl, margin, y);
+      y += 4.5;
+    }
+    y += 2;
 
     for (const r of exCorr.reponses) {
-      const repLines = doc.splitTextToSize(`${r.item} : ${r.reponse}`, contentWidth - 16);
-      checkPageBreak(repLines.length * 4 + 4);
-
+      ensureSpace(8);
+      const itemLabel = `${r.item || ''} :`;
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
-      doc.text(r.item, margin + 3, y);
+      const itemWidth = doc.getTextWidth(itemLabel) + 3;
 
-      doc.setFont('helvetica', 'normal');
-      const bodyLines = doc.splitTextToSize(r.reponse, contentWidth - 28);
-      doc.text(bodyLines, margin + 14, y);
-
+      const rPtsText = `[${r.points || 1} pt${(r.points || 1) > 1 ? 's' : ''}]`;
       doc.setFont('helvetica', 'italic');
       doc.setFontSize(7.5);
-      doc.setTextColor(100, 116, 139);
-      doc.text(`[${r.points} pt${r.points > 1 ? 's' : ''}]`, pageWidth - margin, y, { align: 'right' });
-      doc.setTextColor(30, 41, 59);
+      const rPtsWidth = doc.getTextWidth(rPtsText) + 2;
 
-      y += bodyLines.length * 4 + 3;
+      const repX = margin + 3 + itemWidth;
+      const maxRepWidth = (pageWidth - margin - rPtsWidth) - repX - 2;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      const bodyLines = doc.splitTextToSize(r.reponse || '', maxRepWidth);
+
+      for (let ri = 0; ri < bodyLines.length; ri++) {
+        if (y + 4.0 > maxY) {
+          doc.addPage();
+          y = topY;
+        }
+
+        if (ri === 0) {
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(8);
+          doc.setTextColor(15, 23, 42);
+          doc.text(itemLabel, margin + 3, y);
+
+          doc.setFont('helvetica', 'italic');
+          doc.setFontSize(7.5);
+          doc.setTextColor(100, 116, 139);
+          doc.text(rPtsText, pageWidth - margin, y, { align: 'right' });
+        }
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(30, 41, 59);
+        doc.text(bodyLines[ri], repX, y);
+        y += 4.0;
+      }
+      y += 2.2;
     }
     y += 3;
   }
@@ -317,52 +552,56 @@ export function generateApcExamPdf(exam: ApcExam): { blob: Blob; url: string; fi
   // Corrigé de la situation d'intégration
   if (exam.corrige.situationCorrigee) {
     const sitCorr = exam.corrige.situationCorrigee;
-    checkPageBreak(25);
+    ensureSpace(20);
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
+    doc.setTextColor(15, 23, 42);
     doc.text('RÉSOLUTION DE LA SITUATION D\'ÉVALUATION (8 POINTS)', margin, y);
     y += 6;
 
     if (sitCorr.consigne1Corrige) {
-      checkPageBreak(15);
+      ensureSpace(12);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
       doc.text('Éléments de réponse - Consigne 1 :', margin + 3, y);
-      y += 4;
+      y += 4.5;
+      
       doc.setFont('helvetica', 'normal');
-      const c1Lines = doc.splitTextToSize(sitCorr.consigne1Corrige, contentWidth - 6);
-      doc.text(c1Lines, margin + 6, y);
-      y += c1Lines.length * 4 + 4;
+      const c1Lines = doc.splitTextToSize(sitCorr.consigne1Corrige, contentWidth - 8);
+      printWrappedLines(c1Lines, margin + 6, 4.0);
+      y += 3;
     }
 
     if (sitCorr.consigne2Corrige) {
-      checkPageBreak(15);
+      ensureSpace(12);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
       doc.text('Éléments de réponse - Consigne 2 :', margin + 3, y);
-      y += 4;
+      y += 4.5;
+
       doc.setFont('helvetica', 'normal');
-      const c2Lines = doc.splitTextToSize(sitCorr.consigne2Corrige, contentWidth - 6);
-      doc.text(c2Lines, margin + 6, y);
-      y += c2Lines.length * 4 + 4;
+      const c2Lines = doc.splitTextToSize(sitCorr.consigne2Corrige, contentWidth - 8);
+      printWrappedLines(c2Lines, margin + 6, 4.0);
+      y += 3;
     }
 
     if (sitCorr.baremeDetaille) {
-      checkPageBreak(12);
+      ensureSpace(12);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
       doc.text('Barème d\'attribution des points APC :', margin + 3, y);
-      y += 4;
+      y += 4.5;
+
       doc.setFont('helvetica', 'italic');
-      const bLines = doc.splitTextToSize(sitCorr.baremeDetaille, contentWidth - 6);
-      doc.text(bLines, margin + 6, y);
-      y += bLines.length * 4 + 4;
+      const bLines = doc.splitTextToSize(sitCorr.baremeDetaille, contentWidth - 8);
+      printWrappedLines(bLines, margin + 6, 4.0);
+      y += 3;
     }
   }
 
   // ==========================================
-  // 6. NUMÉROTATION DES PAGES ET PIED DE PAGE
+  // 6. NUMÉROTATION DES PAGES ET PIED DE PAGE PROPRIÉTAIRE
   // ==========================================
   const totalPages = doc.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
@@ -376,7 +615,7 @@ export function generateApcExamPdf(exam: ApcExam): { blob: Blob; url: string; fi
     doc.line(margin, pageHeight - 12, pageWidth - margin, pageHeight - 12);
 
     doc.text(
-      `Djanta Hub — Générateur d'Épreuves APC Togo (IA Gemini Flash)`,
+      `Djanta Hub — Épreuve Officielle APC Togo (Conforme MEPS)`,
       margin,
       pageHeight - 8
     );
@@ -390,7 +629,7 @@ export function generateApcExamPdf(exam: ApcExam): { blob: Blob; url: string; fi
 
   const blob = doc.output('blob');
   const url = URL.createObjectURL(blob);
-  const safeName = exam.titre.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+  const safeName = formatMathForPdf(exam.titre || '').toLowerCase().replace(/[^a-z0-9]+/g, '_');
   const fileName = `epreuve_apc_${exam.classe}_${exam.discipline}_${safeName.slice(0, 30)}.pdf`;
 
   return { blob, url, fileName };

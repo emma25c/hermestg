@@ -6,6 +6,7 @@ import {
   ApcLessonRef
 } from '../types/apc';
 import { supabase } from './supabase';
+import { formatApcExamMath } from './mathFormatter';
 
 export const GEMINI_API_KEY_STORAGE = 'djanta_gemini_api_key';
 export const GEMINI_MODEL_STORAGE = 'djanta_gemini_model';
@@ -290,7 +291,9 @@ export function getSavedApcExams(): ApcExam[] {
   if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(APC_EXAMS_HISTORY_STORAGE);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const parsed: ApcExam[] = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.map(e => formatApcExamMath(e)) : [];
   } catch {
     return [];
   }
@@ -440,6 +443,16 @@ RÈGLES PÉDAGOGIQUES MAJEURES APC TOGO (NON NÉGOCIABLES) :
    - Ne mets JAMAIS de virgule après le dernier élément d'un tableau (]) ou après la dernière clé d'un objet (}).
    - Les retours à la ligne dans les textes doivent être échappés avec \\n.
    - Tu dois répondre UNIQUEMENT par un objet JSON valide, sans préambule, sans texte avant ou après, sans balises de code Markdown.
+
+6. RÈGLES FORMELLES DE NOTATION MATHÉMATIQUE ET SCIENTIFIQUE (OFFICIEL TOGO / UEMOA) :
+   - INTERDICTION ABSOLUE de la syntaxe informatique brute : n'écris JAMAIS "*", "sqrt", "/" pour les divisions en ligne, "^" pour les puissances, ni d'opérateurs informatiques comme "<=", ">=", "!=", "[*, sqrt, /]".
+   - Multiplication : utilise EXCLUSIVEMENT le symbole typographique officiel "×" (ex: 3 × 10⁸ m/s, 2 × (x + 1)) ou la notation algébrique implicite (ex: 2x, 4a). JAMAIS d'astérisque "*".
+   - Racine carrée : utilise EXCLUSIVEMENT le symbole officiel "√" (ex: √16 = 4, √(x² + 9)), JAMAIS le mot "sqrt".
+   - Exposants et puissances : utilise les vrais caractères Unicode exposants : ², ³, ⁴, ⁿ, ⁻¹, ⁻², ⁻³, ⁰, ¹ (ex: x², cm³, 10⁻³, m/s²). JAMAIS d'accent circonflexe "^" (pas de x^2, pas de 10^-3).
+   - Indices : utilise les vrais indices Unicode : ₀, ₁, ₂, ₃, ₙ (ex: uₙ, v₀, H₂O, CO₂).
+   - Inégalités et relations : utilise les symboles mathématiques universels : ≤, ≥, ≠, ≈, ∈, ∉, ±, π, Δ, α, β, λ, Ω, μ.
+   - Fractions et divisions : écris lisiblement les fractions avec parenthèses claires ou utilise le symbole "÷" (ex: (x + 1) / (x - 2) ou 120 ÷ 2 = 60).
+   - Notations géométriques : segment [AB], droite (AB), demi-droite [AB), longueur AB, vecteur vect(AB), angle ang(ABC).
 
 ${disciplineInstructions}`;
 }
@@ -927,8 +940,8 @@ export async function generateApcExamWithGemini(
   // Parsing avec moteur de réparation résilient
   const parsedData = repairAndParseJson(rawText);
 
-  // Normalisation de l'épreuve
-  const exam: ApcExam = {
+  // Normalisation de l'épreuve avec formatage mathématique rigoureux
+  const rawExam: ApcExam = {
     id: `apc-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
     titre: parsedData.titre || `Composition de ${params.discipline.toUpperCase()}`,
     classe: params.classe,
@@ -951,6 +964,8 @@ export async function generateApcExamWithGemini(
     rawJson: rawText
   };
 
+  const exam = formatApcExamMath(rawExam);
+
   // Si c'est un utilisateur gratuit, on incrémente son quota
   if (!params.hasActivePass) {
     incrementFreeExamsCount();
@@ -968,6 +983,10 @@ export const generateApcExamWithFallback = generateApcExamWithGemini;
  * Fournit des épreuves types pré-générées pour le mode hors-ligne / démonstration (0 FCFA et sans clé).
  */
 export function getOfflineSampleExam(classe = '3e', discipline = 'maths'): ApcExam {
+  return formatApcExamMath(getRawOfflineSampleExam(classe, discipline));
+}
+
+function getRawOfflineSampleExam(classe = '3e', discipline = 'maths'): ApcExam {
   if (classe === '3e' && discipline === 'maths') {
     return {
       id: 'demo-3e-maths',

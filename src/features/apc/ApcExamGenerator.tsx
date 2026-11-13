@@ -27,6 +27,7 @@ import {
   getOfflineSampleExam
 } from '../../lib/geminiApc';
 import { generateApcExamPdf } from './ApcExamPdf';
+import { formatApcExamMath } from '../../lib/mathFormatter';
 
 interface ApcExamGeneratorProps {
   userPass?: UserPass;
@@ -99,7 +100,7 @@ export const ApcExamGenerator: React.FC<ApcExamGeneratorProps> = ({
 
     // Mettre un exemple type par défaut au premier affichage si pas d'épreuve
     const demo = getOfflineSampleExam('3e', 'maths');
-    setCurrentExam(demo);
+    setCurrentExam(formatApcExamMath(demo));
   }, []);
 
   // Mettre à jour les métadonnées officielles lors du changement de classe ou discipline
@@ -175,7 +176,7 @@ export const ApcExamGenerator: React.FC<ApcExamGeneratorProps> = ({
         ...params,
         hasActivePass: passActive
       });
-      setCurrentExam(exam);
+      setCurrentExam(formatApcExamMath(exam));
       setFreeExamsCount(getFreeExamsUsedCount());
       setSavedExams(getSavedApcExams());
       setViewTab('epreuve');
@@ -196,7 +197,7 @@ export const ApcExamGenerator: React.FC<ApcExamGeneratorProps> = ({
   // Charger une démo hors ligne
   const handleLoadDemo = () => {
     const demo = getOfflineSampleExam(selectedClasse, selectedDiscipline);
-    setCurrentExam(demo);
+    setCurrentExam(formatApcExamMath(demo));
     setViewTab('epreuve');
     setErrorMessage(null);
   };
@@ -288,7 +289,7 @@ export const ApcExamGenerator: React.FC<ApcExamGeneratorProps> = ({
       if (sc.baremeDetaille) fullText += `Barème : ${sc.baremeDetaille}\n\n`;
     }
 
-    fullText += `Généré via Djanta Hub - APC Togo (Moteur IA Gemini)\n`;
+    fullText += `Généré via Djanta Hub - APC Togo (Format Officiel MEPS)\n`;
 
     navigator.clipboard.writeText(fullText).then(() => {
       setIsCopied(true);
@@ -1110,7 +1111,7 @@ export const ApcExamGenerator: React.FC<ApcExamGeneratorProps> = ({
                   >
                     <div 
                       onClick={() => {
-                        setCurrentExam(ex);
+                        setCurrentExam(formatApcExamMath(ex));
                         setIsHistoryOpen(false);
                       }}
                       className="flex-1 cursor-pointer"
