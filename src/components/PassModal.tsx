@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { X, MessageCircle } from 'lucide-react';
+import { X, MessageCircle, Loader2 } from 'lucide-react';
 import { UserPass } from '../types';
 import { saveUserPass } from '../lib/storage';
+import { supabase } from '../lib/supabase';
 import { LionLogo } from './LionLogo';
 
 interface PassModalProps {
@@ -20,6 +21,7 @@ export const PassModal: React.FC<PassModalProps> = ({
   const [selectedPlan, setSelectedPlan] = useState<'pass_7d' | 'pass_30d' | 'pass_90d'>('pass_30d');
   const [activationCode, setActivationCode] = useState('');
   const [activationError, setActivationError] = useState('');
+  const [isApplyingCode, setIsApplyingCode] = useState(false);
 
   if (!isOpen) return null;
 
@@ -60,9 +62,47 @@ export const PassModal: React.FC<PassModalProps> = ({
     window.open(url, '_blank');
   };
 
-  const handleApplyCode = () => {
+  const handleApplyCode = async () => {
+    setActivationError('');
     const normalized = activationCode.trim().toUpperCase();
-    if (normalized === 'DJANTA2026' || normalized === 'TOGO2026' || normalized === 'PASSVIP') {
+    if (!normalized) return;
+
+    setIsApplyingCode(true);
+
+    try {
+      // 1. D'abord, tenter la validation en direct via Supabase (table activation_codes)
+      const { data: sessionData } = await supabase.auth.getSession();
+      const currentUserId = sessionData?.session?.user?.id;
+
+      if (currentUserId) {
+        const { data, error } = await supabase.rpc('activate_user_pass_with_code', {
+          p_code: normalized,
+          p_user_id: currentUserId
+        });
+
+        if (!error && data?.success) {
+          const updated: UserPass = {
+            ...userPass,
+            status: data.plan_type,
+            expiresAt: data.expires_at
+          };
+          saveUserPass(updated);
+          onPassUpdated(updated);
+          onClose();
+          return;
+        } else if (data?.error && !['DJANTA2026', 'TOGO2026', 'PASSVIP'].includes(normalized)) {
+          setActivationError(data.error);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('Erreur validation en ligne:', e);
+    } finally {
+      setIsApplyingCode(false);
+    }
+
+    // 2. Codes de secours administratifs (DJANTA2026, TOGO2026, PASSVIP)
+    if (['DJANTA2026', 'TOGO2026', 'PASSVIP'].includes(normalized)) {
       const days = selectedPlan === 'pass_7d' ? 7 : selectedPlan === 'pass_30d' ? 30 : 90;
       const exp = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
       const updated: UserPass = {
@@ -72,6 +112,22 @@ export const PassModal: React.FC<PassModalProps> = ({
       };
       saveUserPass(updated);
       onPassUpdated(updated);
+
+      // Si connecté, synchroniser immédiatement le profil dans Supabase
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user?.id) {
+          supabase
+            .from('profiles')
+            .update({
+              pass_status: selectedPlan,
+              pass_expires_at: exp,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', session.user.id)
+            .then();
+        }
+      });
+
       onClose();
     } else {
       setActivationError('Code non reconnu. Envoyez votre capture de transfert sur WhatsApp pour recevoir votre code.');
@@ -166,9 +222,11 @@ export const PassModal: React.FC<PassModalProps> = ({
             />
             <button
               onClick={handleApplyCode}
-              className="bg-slate-100 hover:bg-slate-200 text-slate-900 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border border-slate-200"
+              disabled={isApplyingCode || !activationCode.trim()}
+              className="bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5"
             >
-              Appliquer
+              {isApplyingCode ? <Loader2 size={13} className="animate-spin text-amber-400" /> : null}
+              <span>{isApplyingCode ? 'Vérification...' : 'Appliquer'}</span>
             </button>
           </div>
           {activationError && (

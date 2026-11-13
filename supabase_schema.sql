@@ -164,18 +164,78 @@ END;
 $$;
 
 -- ========================================================
--- EXEMPLES D'AJOUT DE CLÉS DANS SUPABASE (SQL EDITOR) :
---
--- 1. Clé Google Gemini gratuite (Google AI Studio) :
--- INSERT INTO public.ai_keys (label, api_key, base_url, model, provider)
--- VALUES ('Gemini Compte 1', 'AIzaSy...', 'https://generativelanguage.googleapis.com', 'gemini-2.5-flash', 'gemini');
---
--- 2. Clé Groq (Ultra-rapide avec Llama 3.3) :
--- INSERT INTO public.ai_keys (label, api_key, base_url, model, provider)
--- VALUES ('Groq Llama', 'gsk_...', 'https://api.groq.com/openai/v1', 'llama-3.3-70b-versatile', 'openai');
---
--- 3. Clé OpenRouter ou DeepSeek :
--- INSERT INTO public.ai_keys (label, api_key, base_url, model, provider)
--- VALUES ('OpenRouter', 'sk-or-...', 'https://openrouter.ai/api/v1', 'deepseek/deepseek-chat', 'openai');
+-- 6. Table des Codes d'Activation VIP (Souscriptions Pass)
 -- ========================================================
+CREATE TABLE IF NOT EXISTS public.activation_codes (
+  code TEXT PRIMARY KEY,
+  plan_type TEXT NOT NULL DEFAULT 'pass_30d' CHECK (plan_type IN ('pass_7d', 'pass_30d', 'pass_90d')),
+  duration_days INTEGER NOT NULL DEFAULT 30,
+  is_used BOOLEAN DEFAULT false NOT NULL,
+  used_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE public.activation_codes ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Lecture des codes par utilisateur connecté"
+  ON public.activation_codes FOR SELECT
+  USING (true);
+
+-- Fonction pour valider et appliquer un code d'activation au profil d'un utilisateur
+CREATE OR REPLACE FUNCTION public.activate_user_pass_with_code(p_code TEXT, p_user_id UUID)
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_code RECORD;
+  v_new_expires_at TIMESTAMPTZ;
+  v_current_expires_at TIMESTAMPTZ;
+  v_base_time TIMESTAMPTZ := now();
+BEGIN
+  -- Vérifier si le code existe et n'est pas encore utilisé
+  SELECT * INTO v_code
+  FROM public.activation_codes
+  WHERE UPPER(code) = UPPER(TRIM(p_code)) AND is_used = false;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Code invalide ou déjà utilisé.');
+  END IF;
+
+  -- Vérifier l'expiration actuelle du profil pour prolonger si déjà actif
+  SELECT pass_expires_at INTO v_current_expires_at
+  FROM public.profiles
+  WHERE id = p_user_id;
+
+  IF v_current_expires_at IS NOT NULL AND v_current_expires_at > now() THEN
+    v_base_time := v_current_expires_at;
+  END IF;
+
+  v_new_expires_at := v_base_time + (v_code.duration_days || ' days')::INTERVAL;
+
+  -- Mettre à jour le profil utilisateur
+  UPDATE public.profiles
+  SET pass_status = v_code.plan_type,
+      pass_expires_at = v_new_expires_at,
+      updated_at = now()
+  WHERE id = p_user_id;
+
+  -- Marquer le code comme consommé
+  UPDATE public.activation_codes
+  SET is_used = true,
+      used_by = p_user_id,
+      used_at = now()
+  WHERE code = v_code.code;
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'plan_type', v_code.plan_type,
+    'expires_at', v_new_expires_at,
+    'duration_days', v_code.duration_days
+  );
+END;
+$$;
+
+-- Exemple pour créer un code d'activation VIP :
+-- INSERT INTO public.activation_codes (code, plan_type, duration_days)
+-- VALUES ('VIP-TOGO-2026', 'pass_30d', 30);
+
 
