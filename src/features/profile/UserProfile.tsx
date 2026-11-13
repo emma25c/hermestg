@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   User, Smartphone, MapPin, Gift, Check, ShieldCheck, 
   LogOut, LogIn, Mail, Lock, AlertCircle, Copy, Share2, 
-  Sparkles, RefreshCw
+  UserPlus, RefreshCw
 } from 'lucide-react';
 import { UserProfileData, UserPass } from '../../types';
 import { getStoredUserProfile, saveStoredUserProfile } from '../../lib/storage';
@@ -252,7 +252,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
                 )}
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                {sessionUser?.email || profile.email || 'Mode local • Données protégées sur cet appareil'}
+                {sessionUser?.email || profile.email || 'Compte actif'}
               </p>
             </div>
           </div>
@@ -343,7 +343,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
                     onClick={() => { setAuthMode('email_signup'); setAuthError(null); }}
                     className="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
                   >
-                    <Sparkles size={14} className="text-amber-600" />
+                    <UserPlus size={14} className="text-amber-600" />
                     <span>Créer un compte</span>
                   </button>
                 </div>
@@ -425,7 +425,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
           <div className="mt-4 p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 flex items-center justify-between">
             <div className="flex items-center gap-2 text-xs text-slate-600">
               <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              <span>Session active sur Supabase Cloud</span>
+              <span>Connecté ({sessionUser?.email || profile.email})</span>
             </div>
             <button
               onClick={handleSignOut}
@@ -448,7 +448,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
               <span>Vos Informations Personnelles</span>
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Renseignez vos coordonnées togolaises pour vos reçus, votre affiliation et vos attestations.
+              Coordonnées pour vos reçus et votre profil.
             </p>
           </div>
 

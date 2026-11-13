@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileDown, UploadCloud, CheckCircle2, ShieldCheck, Sparkles, Loader2 } from 'lucide-react';
+import { FileDown, UploadCloud, CheckCircle2, ShieldCheck, Loader2 } from 'lucide-react';
 import { compressDocumentToPdf, CompressResult } from './compressEngine';
 
 const PORTAL_PRESETS = [
@@ -218,8 +218,8 @@ export const DocumentCompressor: React.FC = () => {
           </div>
 
           <div className="mt-4 pt-3 border-t border-slate-200 text-[11px] text-slate-500 flex items-start gap-2">
-            <Sparkles size={14} className="text-amber-600 shrink-0 mt-0.5" />
-            <p><strong>Confidentialité garantie :</strong> Le traitement s'effectue dans la mémoire vive de votre téléphone. Votre CNI ou diplôme ne quitte jamais votre appareil.</p>
+            <ShieldCheck size={14} className="text-emerald-600 shrink-0 mt-0.5" />
+            <p>Le traitement s'effectue directement sur votre appareil sans téléversement sur serveur.</p>
           </div>
         </div>
       </div>

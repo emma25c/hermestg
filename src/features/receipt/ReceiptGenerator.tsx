@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Download, Receipt, Share2, Sparkles } from 'lucide-react';
+import { Plus, Trash2, Download, Receipt, Share2, Check } from 'lucide-react';
 import { ReceiptData, ReceiptItem } from '../../types';
 import { generateReceiptPdf } from './receiptPdf';
 import { saveReceiptDraft } from '../../lib/storage';
@@ -337,8 +337,8 @@ export const ReceiptGenerator: React.FC = () => {
           </div>
 
           <div className="mt-4 pt-3 border-t border-slate-200 text-[11px] text-slate-500 flex items-center gap-1.5">
-            <Sparkles size={14} className="text-amber-600 shrink-0" />
-            <span>Aucune connexion requise. Le document est compilé directement par le moteur JavaScript de votre smartphone.</span>
+            <Check size={14} className="text-emerald-600 shrink-0" />
+            <span>Document généré localement sur votre téléphone.</span>
           </div>
         </div>
       </div>

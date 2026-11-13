@@ -88,34 +88,94 @@ CREATE POLICY "Lecture publique des formations"
   ON public.courses FOR SELECT
   USING (true);
 
--- Données initiales d'exemple à l'insertion
-INSERT INTO public.courses (title, category, duration, description, video_url, is_premium, order_index)
-VALUES 
-  (
-    'Maîtriser les Outils d’IA sur Smartphone',
-    'Intelligence Artificielle',
-    '15 min',
-    'Techniques pour formuler des instructions précises, rédiger des courriers impeccables et synthétiser des documents lourds sans ordinateur.',
-    'https://www.youtube.com/watch?v=kCc8FmEb1nY',
-    false,
-    1
-  ),
-  (
-    'Vente Professionnelle sur WhatsApp à Lomé',
-    'Commerce & Freelance',
-    '20 min',
-    'Comment transformer ses statuts WhatsApp en vitrine commerciale crédible, instaurer la confiance et formaliser ses ventes par reçu.',
-    'https://www.youtube.com/watch?v=fJ9rUzIMcZQ',
-    true,
-    2
-  ),
-  (
-    'Lancer une Prestation de Micro-Services à 0 FCFA',
-    'Entrepreneuriat Étudiant',
-    '15 min',
-    'Méthodologie pour proposer des prestations de mise en page, correction de documents et formalisation administrative depuis son téléphone.',
-    'https://www.youtube.com/watch?v=kJQP7kiw5Fk',
-    true,
-    3
-  )
-ON CONFLICT DO NOTHING;
+-- 5. Table des Clés IA & Base URL (Pool de rotation pour APC)
+-- Permet d'ajouter des clés Google Gemini, Groq, OpenRouter, DeepSeek ou tout endpoint compatible OpenAI
+CREATE TABLE IF NOT EXISTS public.ai_keys (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  label TEXT NOT NULL DEFAULT 'Clé IA',
+  api_key TEXT NOT NULL,
+  base_url TEXT DEFAULT 'https://generativelanguage.googleapis.com', -- Ou https://api.groq.com/openai/v1, https://openrouter.ai/api/v1, etc.
+  model TEXT DEFAULT 'gemini-2.5-flash', -- Modèle à appeler (ex: gemini-2.5-flash, llama-3.3-70b-versatile, gpt-4o-mini, etc.)
+  provider TEXT DEFAULT 'gemini' CHECK (provider IN ('gemini', 'openai', 'custom')),
+  is_active BOOLEAN DEFAULT true NOT NULL,
+  usage_count INTEGER DEFAULT 0 NOT NULL,
+  last_used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE public.ai_keys ENABLE ROW LEVEL SECURITY;
+
+-- Lecture des clés actives pour la génération
+CREATE POLICY "Lecture des clés actives"
+  ON public.ai_keys FOR SELECT
+  USING (is_active = true);
+
+-- Mise à jour du compteur d'utilisation
+CREATE POLICY "Mise à jour usage clés"
+  ON public.ai_keys FOR UPDATE
+  USING (true)
+  WITH CHECK (true);
+
+-- Fonction de rotation automatique (sélectionne la clé la moins utilisée et incrémente son compteur)
+CREATE OR REPLACE FUNCTION public.get_rotated_ai_key()
+RETURNS TABLE (
+  id UUID,
+  label TEXT,
+  api_key TEXT,
+  base_url TEXT,
+  model TEXT,
+  provider TEXT
+) LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  selected_row public.ai_keys%ROWTYPE;
+BEGIN
+  SELECT * INTO selected_row
+  FROM public.ai_keys
+  WHERE is_active = true
+  ORDER BY usage_count ASC, last_used_at ASC NULLS FIRST
+  LIMIT 1
+  FOR UPDATE SKIP LOCKED;
+
+  IF FOUND THEN
+    UPDATE public.ai_keys
+    SET usage_count = usage_count + 1,
+        last_used_at = timezone('utc'::text, now())
+    WHERE id = selected_row.id;
+
+    RETURN QUERY
+    SELECT selected_row.id, selected_row.label, selected_row.api_key, selected_row.base_url, selected_row.model, selected_row.provider;
+  END IF;
+END;
+$$;
+
+-- Alias pour compatibilité ascendante
+CREATE OR REPLACE FUNCTION public.get_rotated_gemini_key()
+RETURNS TEXT LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  k TEXT;
+BEGIN
+  SELECT api_key INTO k
+  FROM public.ai_keys
+  WHERE is_active = true
+  ORDER BY usage_count ASC, last_used_at ASC NULLS FIRST
+  LIMIT 1;
+  RETURN k;
+END;
+$$;
+
+-- ========================================================
+-- EXEMPLES D'AJOUT DE CLÉS DANS SUPABASE (SQL EDITOR) :
+--
+-- 1. Clé Google Gemini gratuite (Google AI Studio) :
+-- INSERT INTO public.ai_keys (label, api_key, base_url, model, provider)
+-- VALUES ('Gemini Compte 1', 'AIzaSy...', 'https://generativelanguage.googleapis.com', 'gemini-2.5-flash', 'gemini');
+--
+-- 2. Clé Groq (Ultra-rapide avec Llama 3.3) :
+-- INSERT INTO public.ai_keys (label, api_key, base_url, model, provider)
+-- VALUES ('Groq Llama', 'gsk_...', 'https://api.groq.com/openai/v1', 'llama-3.3-70b-versatile', 'openai');
+--
+-- 3. Clé OpenRouter ou DeepSeek :
+-- INSERT INTO public.ai_keys (label, api_key, base_url, model, provider)
+-- VALUES ('OpenRouter', 'sk-or-...', 'https://openrouter.ai/api/v1', 'deepseek/deepseek-chat', 'openai');
+-- ========================================================
+

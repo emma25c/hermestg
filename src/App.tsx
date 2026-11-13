@@ -97,23 +97,22 @@ export const App: React.FC = () => {
   // ÉCRAN DE CHARGEMENT INITIAL (SPLASH SCREEN AVEC LION DJANTA ET SPINNER)
   if (isAuthChecking) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex flex-col items-center justify-center p-6 text-white select-none">
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-white select-none">
         <div className="flex flex-col items-center text-center space-y-5 max-w-sm animate-fadeIn">
-          <div className="relative">
-            <div className="absolute -inset-4 bg-amber-500/20 rounded-full blur-2xl animate-pulse" />
-            <LionLogo size={76} className="w-20 h-20 relative z-10" />
+          <div>
+            <LionLogo size={68} className="w-18 h-18 mx-auto" />
           </div>
           <div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white font-display">
               Djanta<span className="text-amber-500">Hub</span>
             </h1>
             <p className="text-xs text-slate-400 mt-1 font-medium">
-              La force d’avancer au Togo 🇹🇬
+              La force d’avancer au Togo
             </p>
           </div>
-          <div className="flex items-center gap-3 px-4 py-2 rounded-full bg-slate-900/90 border border-slate-800 text-xs text-slate-300 shadow-xl">
+          <div className="flex items-center gap-3 px-4 py-2 rounded-full bg-slate-900 border border-slate-800 text-xs text-slate-300 shadow-md">
             <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
-            <span>Vérification de la session...</span>
+            <span>Chargement...</span>
           </div>
         </div>
       </div>
@@ -149,10 +148,10 @@ export const App: React.FC = () => {
         {/* Titre et raison d'être Djanta Hub */}
         <div className="mb-6 pb-2">
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
-            Djanta Hub — La force d’avancer au Togo.
+            Djanta Hub
           </h1>
           <p className="text-xs sm:text-sm text-slate-600 mt-1 max-w-2xl leading-relaxed">
-            Boîte à outils locale pour les élèves, enseignants et vendeurs de Lomé : générateur d'épreuves APC par IA, compression de documents de concours sous 500 Ko, reçus WhatsApp et calcul des frais de retrait.
+            Générateur d'épreuves APC, compression de documents sous 500 Ko, reçus WhatsApp et calcul de frais de retrait.
           </p>
         </div>
 

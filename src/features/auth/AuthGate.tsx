@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { LionLogo } from '../../components/LionLogo';
 import { 
   Mail, Lock, User, Smartphone, MapPin, Eye, EyeOff, 
-  Loader2, AlertCircle, CheckCircle2, ShieldCheck, Sparkles, 
+  Loader2, AlertCircle, CheckCircle2, 
   LogIn, UserPlus, Gift, MessageCircle
 } from 'lucide-react';
 import { 
@@ -72,7 +72,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAuthenticated }) => {
       return 'Connexion réseau impossible. Vérifiez votre connexion internet.';
     }
     if (raw.includes("Supabase n'est pas")) {
-      return "Le service d'authentification Supabase n'est pas encore configuré.";
+      return "Le service de connexion est temporairement indisponible.";
     }
     return raw || "Une erreur est survenue lors de l'authentification.";
   };
@@ -220,7 +220,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAuthenticated }) => {
           Djanta<span className="text-amber-500">Hub</span>
         </h1>
         <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-xs mx-auto leading-relaxed">
-          La force d’avancer • Boîte à outils locale pour élèves, enseignants et vendeurs au Togo 🇹🇬
+          Boîte à outils pour élèves, enseignants et commerçants au Togo
         </p>
       </header>
 
@@ -523,43 +523,32 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAuthenticated }) => {
                   </>
                 ) : (
                   <>
-                    <Sparkles size={16} className="text-amber-400" />
-                    <span>Créer mon compte Djanta Hub</span>
+                    <UserPlus size={16} className="text-amber-400" />
+                    <span>Créer mon compte</span>
                   </>
                 )}
               </button>
             </div>
           </form>
 
-          {/* RAPPEL SUPABASE CLOUD & PROTECTION DES DONNÉES */}
-          <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-            <div className="flex items-center gap-1.5">
-              <ShieldCheck size={14} className="text-emerald-600" />
-              <span>Authentification Supabase Cloud</span>
-            </div>
+          {/* ASSISTANCE */}
+          <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-center text-xs text-slate-500">
             <a
-              href="https://wa.me/22872199337?text=Bonjour%20Djanta%20Hub,%20j'ai%20une%20question%20sur%20l'inscription"
+              href="https://wa.me/22872199337?text=Bonjour%20Djanta%20Hub,%20j'ai%20une%20question"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-slate-600 hover:text-slate-900 font-semibold flex items-center gap-1"
+              className="text-slate-600 hover:text-slate-900 font-medium flex items-center gap-1.5 transition-colors"
             >
-              <MessageCircle size={13} className="text-emerald-600" />
-              <span>Support Lomé</span>
+              <MessageCircle size={14} className="text-emerald-600" />
+              <span>Assistance WhatsApp</span>
             </a>
           </div>
-        </div>
-
-        {/* MENTION LÉGALE & ACCÈS DIRECT */}
-        <div className="text-center mt-4">
-          <p className="text-[11px] text-slate-400">
-            En continuant, vous accédez à l'écosystème Djanta Hub Togo. Vos données restent strictement confidentielles.
-          </p>
         </div>
       </main>
 
       {/* PIED DE PAGE */}
       <footer className="w-full max-w-md mx-auto text-center pt-4 pb-2 text-[11px] text-slate-500 relative z-10">
-        <p>© {new Date().getFullYear()} Djanta Hub • Fait avec fierté à Lomé, Togo 🇹🇬</p>
+        <p>© {new Date().getFullYear()} Djanta Hub • Lomé, Togo</p>
       </footer>
     </div>
   );

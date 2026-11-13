@@ -160,21 +160,101 @@ export function incrementFreeExamsCount(): number {
   return next;
 }
 
+export interface RotatedAiKey {
+  id?: string;
+  label?: string;
+  apiKey: string;
+  baseUrl?: string;
+  model?: string;
+  provider?: 'gemini' | 'openai' | 'custom' | string;
+}
+
 /**
- * Interroge Supabase pour obtenir une clé Gemini active par rotation (round-robin / moindre utilisation).
+ * Interroge Supabase pour obtenir une clé active par rotation (round-robin / moindre utilisation),
+ * avec prise en charge d'un Base URL personnalisé (Groq, OpenRouter, OpenAI, self-hosted, etc.).
  */
-export async function fetchRotatedGeminiKeyFromPool(): Promise<string | null> {
+export async function fetchRotatedAiKeyFromPool(): Promise<RotatedAiKey | null> {
+  // 1. Essai de la fonction RPC Supabase get_rotated_ai_key
+  try {
+    const { data, error } = await supabase.rpc('get_rotated_ai_key');
+    if (!error && data && data.length > 0) {
+      const row = Array.isArray(data) ? data[0] : data;
+      return {
+        id: row.id,
+        label: row.label,
+        apiKey: (row.api_key || '').trim(),
+        baseUrl: row.base_url || 'https://generativelanguage.googleapis.com',
+        model: row.model || 'gemini-2.5-flash',
+        provider: row.provider || 'gemini'
+      };
+    }
+  } catch {}
+
+  // 2. Essai de lecture directe dans la table public.ai_keys
+  try {
+    const { data, error } = await supabase
+      .from('ai_keys')
+      .select('*')
+      .eq('is_active', true)
+      .order('usage_count', { ascending: true })
+      .limit(5);
+
+    if (!error && data && data.length > 0) {
+      const row = data[0];
+      // Incrément asynchrone du compteur
+      supabase
+        .from('ai_keys')
+        .update({
+          usage_count: (row.usage_count || 0) + 1,
+          last_used_at: new Date().toISOString()
+        })
+        .eq('id', row.id)
+        .then();
+
+      return {
+        id: row.id,
+        label: row.label,
+        apiKey: (row.api_key || '').trim(),
+        baseUrl: row.base_url || 'https://generativelanguage.googleapis.com',
+        model: row.model || 'gemini-2.5-flash',
+        provider: row.provider || 'gemini'
+      };
+    }
+  } catch {}
+
+  // 3. Essai de l'ancienne RPC get_rotated_gemini_key (compatibilité)
   try {
     const { data, error } = await supabase.rpc('get_rotated_gemini_key');
-    if (error) {
-      console.warn('Erreur appel RPC get_rotated_gemini_key:', error);
-      return null;
+    if (!error && data) {
+      return {
+        apiKey: (data as string).trim(),
+        baseUrl: 'https://generativelanguage.googleapis.com',
+        model: 'gemini-2.5-flash',
+        provider: 'gemini'
+      };
     }
-    return data ? (data as string).trim() : null;
-  } catch (err) {
-    console.warn('Exception appel get_rotated_gemini_key:', err);
-    return null;
+  } catch {}
+
+  // 4. Clé de secours dans les variables d'environnement Vite
+  const envKey = import.meta.env.VITE_GEMINI_API_KEY;
+  if (envKey) {
+    return {
+      apiKey: envKey.trim(),
+      baseUrl: 'https://generativelanguage.googleapis.com',
+      model: 'gemini-2.5-flash',
+      provider: 'gemini'
+    };
   }
+
+  return null;
+}
+
+/**
+ * Alias de compatibilité
+ */
+export async function fetchRotatedGeminiKeyFromPool(): Promise<string | null> {
+  const k = await fetchRotatedAiKeyFromPool();
+  return k?.apiKey || null;
 }
 
 /**
@@ -678,7 +758,8 @@ export async function testGeminiApiKey(key: string, modelName = DEFAULT_GEMINI_M
 }
 
 /**
- * Appelle l'API Gemini pour générer l'épreuve avec échelle de repli et rotation automatique des clés.
+ * Appelle l'API IA (Gemini officiel ou tout endpoint compatible OpenAI avec base_url personnalisé)
+ * pour générer l'épreuve avec rotation automatique des clés et gestion des quotas.
  */
 export async function generateApcExamWithGemini(
   params: ApcGenerationParams & { hasActivePass?: boolean; userId?: string }
@@ -693,139 +774,186 @@ export async function generateApcExamWithGemini(
     );
   }
 
-  // 2. DÉTERMINATION DE LA CLÉ À UTILISER (Rotation 100% assurée par le pool Supabase)
-  let keyToUse = params.apiKey || '';
-  let isUsingPool = false;
-
-  if (!keyToUse) {
-    // Récupération d'une clé active depuis le pool de rotation Supabase
-    const poolKey = await fetchRotatedGeminiKeyFromPool();
-    if (poolKey) {
-      keyToUse = poolKey;
-      isUsingPool = true;
-    } else {
-      // Clé fallback d'environnement si configurée
-      const envKey = import.meta.env.VITE_GEMINI_API_KEY;
-      if (envKey) {
-        keyToUse = envKey;
-      } else {
-        throw new Error(
-          'Le service de génération IA est momentanément indisponible. Le pool de clés est en cours de réapprovisionnement. Veuillez réessayer dans un instant ou contacter le support Djanta Hub.'
-        );
-      }
-    }
+  // 2. RÉCUPÉRATION DE LA CLÉ IA DEPUIS LE POOL DE ROTATION (AVEC SUPPORT BASE_URL CUSTOM)
+  let activeKeyConfig: RotatedAiKey | null = null;
+  if (params.apiKey) {
+    activeKeyConfig = {
+      apiKey: params.apiKey.trim(),
+      baseUrl: 'https://generativelanguage.googleapis.com',
+      provider: 'gemini'
+    };
+  } else {
+    activeKeyConfig = await fetchRotatedAiKeyFromPool();
   }
 
-  const modelsToTry = [
-    params.model || getStoredGeminiModel() || DEFAULT_GEMINI_MODEL,
-    'gemini-2.5-flash',
-    'gemini-1.5-flash',
-    'gemini-2.0-flash'
-  ];
-  // Dédoublonnage
-  const uniqueModels = Array.from(new Set(modelsToTry));
+  if (!activeKeyConfig || !activeKeyConfig.apiKey) {
+    throw new Error(
+      'Le service de génération IA est momentanément indisponible. Le pool de clés est en cours de réapprovisionnement. Veuillez réessayer dans un instant ou contacter le support Djanta Hub.'
+    );
+  }
 
   const systemPrompt = buildApcSystemPrompt(params.discipline, params.classe);
   const userPrompt = buildApcUserPrompt(params);
 
-  let lastError: Error | null = null;
+  // Détection du mode d'appel : OpenAI compatible (Groq, OpenRouter, DeepSeek, custom URL) ou Gemini natif
+  const isCustomOpenAi =
+    activeKeyConfig.provider === 'openai' ||
+    (activeKeyConfig.baseUrl && !activeKeyConfig.baseUrl.includes('googleapis.com'));
 
-  for (const model of uniqueModels) {
-    try {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${keyToUse.trim()}`;
+  let rawText = '';
 
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: 'user',
-              parts: [{ text: userPrompt }]
+  if (isCustomOpenAi) {
+    // === MODE COMPATIBLE OPENAI (Groq, OpenRouter, DeepSeek, Mistral, Ollama, Proxy custom) ===
+    let endpoint = (activeKeyConfig.baseUrl || 'https://api.openai.com/v1').trim().replace(/\/+$/, '');
+    if (!endpoint.endsWith('/chat/completions')) {
+      endpoint = `${endpoint}/chat/completions`;
+    }
+
+    const modelName = activeKeyConfig.model || params.model || 'gpt-4o-mini';
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${activeKeyConfig.apiKey}`
+    };
+    if (endpoint.includes('openrouter.ai')) {
+      headers['HTTP-Referer'] = 'https://djanthub.tg';
+      headers['X-Title'] = 'Djanta Hub';
+    }
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model: modelName,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.1,
+        response_format: { type: 'json_object' }
+      })
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      const errMsg = errData?.error?.message || errData?.message || `HTTP ${res.status}`;
+      throw new Error(`Erreur API IA (${res.status}): ${errMsg}`);
+    }
+
+    const jsonRes = await res.json();
+    rawText = jsonRes?.choices?.[0]?.message?.content || '';
+  } else {
+    // === MODE GOOGLE GEMINI NATIF REST ===
+    const modelsToTry = [
+      activeKeyConfig.model || params.model || getStoredGeminiModel() || DEFAULT_GEMINI_MODEL,
+      'gemini-2.5-flash',
+      'gemini-1.5-flash',
+      'gemini-2.0-flash'
+    ];
+    const uniqueModels = Array.from(new Set(modelsToTry));
+    let lastError: Error | null = null;
+    const baseGeminiUrl = (activeKeyConfig.baseUrl || 'https://generativelanguage.googleapis.com').replace(/\/+$/, '');
+
+    for (const model of uniqueModels) {
+      try {
+        const endpoint = `${baseGeminiUrl}/v1beta/models/${model}:generateContent?key=${activeKeyConfig.apiKey.trim()}`;
+
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [
+              {
+                role: 'user',
+                parts: [{ text: userPrompt }]
+              }
+            ],
+            systemInstruction: {
+              parts: [{ text: systemPrompt }]
+            },
+            generationConfig: {
+              temperature: 0.1,
+              maxOutputTokens: 8192,
+              responseMimeType: 'application/json'
             }
-          ],
-          systemInstruction: {
-            parts: [{ text: systemPrompt }]
-          },
-          generationConfig: {
-            temperature: 0.1, // Déterminisme élevé pour supprimer les anomalies de syntaxe JSON
-            maxOutputTokens: 8192,
-            responseMimeType: 'application/json'
-          }
-        })
-      });
+          })
+        });
 
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        const errMsg = errorData?.error?.message || `HTTP ${res.status}`;
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          const errMsg = errorData?.error?.message || `HTTP ${res.status}`;
 
-        // En cas de saturation quota (429) ou problème de clé sur le pool, faire une rotation automatique !
-        if (isUsingPool && (res.status === 429 || res.status === 403)) {
-          console.warn(`Clé du pool saturée (${res.status}), rotation automatique vers une autre clé...`);
-          const anotherKey = await fetchRotatedGeminiKeyFromPool();
-          if (anotherKey && anotherKey !== keyToUse) {
-            keyToUse = anotherKey;
-            continue; // Réessayer immédiatement avec la nouvelle clé tournée
+          // En cas de saturation quota (429) ou problème de clé sur le pool, faire une rotation automatique !
+          if (res.status === 429 || res.status === 403) {
+            console.warn(`Clé du pool saturée (${res.status}), rotation automatique vers une autre clé...`);
+            const anotherKeyConfig = await fetchRotatedAiKeyFromPool();
+            if (anotherKeyConfig && anotherKeyConfig.apiKey !== activeKeyConfig.apiKey) {
+              activeKeyConfig = anotherKeyConfig;
+              continue; // Réessayer immédiatement avec la nouvelle clé
+            }
           }
+
+          // Si le modèle n'existe pas (404), on essaye le suivant dans l'échelle
+          if (res.status === 404 || errMsg.toLowerCase().includes('not found')) {
+            console.warn(`Modèle ${model} introuvable sur cette clé, passage au modèle suivant...`);
+            continue;
+          }
+          throw new Error(`Erreur Gemini (${res.status}): ${errMsg}`);
         }
 
-        // Si le modèle n'existe pas (404), on essaye le suivant dans l'échelle
-        if (res.status === 404 || errMsg.toLowerCase().includes('not found')) {
-          console.warn(`Modèle ${model} introuvable sur cette clé, passage au modèle suivant...`);
-          continue;
-        }
-        throw new Error(`Erreur Gemini (${res.status}): ${errMsg}`);
+        const jsonResponse = await res.json();
+        rawText = jsonResponse?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        if (rawText) break;
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`Tentative avec ${model} a échoué:`, err);
       }
+    }
 
-      const jsonResponse = await res.json();
-      const rawText = jsonResponse?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!rawText) {
-        throw new Error("L'IA Gemini a renvoyé une réponse vide.");
-      }
-
-      // Parsing avec moteur de réparation résilient
-      const parsedData = repairAndParseJson(rawText);
-
-      // Normalisation de l'épreuve
-      const exam: ApcExam = {
-        id: `apc-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-        titre: parsedData.titre || `Composition de ${params.discipline.toUpperCase()}`,
-        classe: params.classe,
-        classeLabel: CLASSES_META.find(c => c.id === params.classe)?.label || params.classe,
-        discipline: params.discipline,
-        disciplineLabel: DISCIPLINES_META.find(d => d.id === params.discipline)?.label || params.discipline,
-        etablissement: params.etablissement || 'Lycée de Tokoin',
-        directionRegionale: parsedData.directionRegionale || 'DIRECTION RÉGIONALE DE L’ÉDUCATION (GRAND LOMÉ)',
-        anneeScolaire: params.anneeScolaire || '2025 - 2026',
-        session: params.session || 'Évaluation Sommative du 1er Trimestre',
-        duree: params.duree || parsedData.duree || '2h 00min',
-        coefficient: params.coefficient || parsedData.coefficient || 2,
-        dateCreation: new Date().toISOString(),
-        typeEpreuve: params.typeEpreuve,
-        leconsCiblees: params.lecons,
-        totalPoints: parsedData.totalPoints || 20,
-        exercices: parsedData.exercices || [],
-        situationIntegration: parsedData.situationIntegration,
-        corrige: parsedData.corrige || { exerciceCorriges: [] },
-        rawJson: rawText
-      };
-
-      // Si c'est un utilisateur gratuit, on incrémente son quota
-      if (!params.hasActivePass) {
-        incrementFreeExamsCount();
-      }
-
-      // Sauvegarde dans l'historique local
-      saveApcExamToHistory(exam);
-
-      return exam;
-    } catch (err: any) {
-      lastError = err;
-      console.warn(`Tentative avec ${model} a échoué:`, err);
+    if (!rawText && lastError) {
+      throw lastError;
     }
   }
 
-  throw lastError || new Error('Impossible de générer l’épreuve avec Gemini.');
+  if (!rawText) {
+    throw new Error("L'IA a renvoyé une réponse vide.");
+  }
+
+  // Parsing avec moteur de réparation résilient
+  const parsedData = repairAndParseJson(rawText);
+
+  // Normalisation de l'épreuve
+  const exam: ApcExam = {
+    id: `apc-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+    titre: parsedData.titre || `Composition de ${params.discipline.toUpperCase()}`,
+    classe: params.classe,
+    classeLabel: CLASSES_META.find(c => c.id === params.classe)?.label || params.classe,
+    discipline: params.discipline,
+    disciplineLabel: DISCIPLINES_META.find(d => d.id === params.discipline)?.label || params.discipline,
+    etablissement: params.etablissement || 'Lycée de Tokoin',
+    directionRegionale: parsedData.directionRegionale || 'DIRECTION RÉGIONALE DE L’ÉDUCATION (GRAND LOMÉ)',
+    anneeScolaire: params.anneeScolaire || '2025 - 2026',
+    session: params.session || 'Évaluation Sommative du 1er Trimestre',
+    duree: params.duree || parsedData.duree || '2h 00min',
+    coefficient: params.coefficient || parsedData.coefficient || 2,
+    dateCreation: new Date().toISOString(),
+    typeEpreuve: params.typeEpreuve,
+    leconsCiblees: params.lecons,
+    totalPoints: parsedData.totalPoints || 20,
+    exercices: parsedData.exercices || [],
+    situationIntegration: parsedData.situationIntegration,
+    corrige: parsedData.corrige || { exerciceCorriges: [] },
+    rawJson: rawText
+  };
+
+  // Si c'est un utilisateur gratuit, on incrémente son quota
+  if (!params.hasActivePass) {
+    incrementFreeExamsCount();
+  }
+
+  // Sauvegarde dans l'historique local
+  saveApcExamToHistory(exam);
+
+  return exam;
 }
 
 export const generateApcExamWithFallback = generateApcExamWithGemini;

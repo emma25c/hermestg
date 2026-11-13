@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Sparkles, BookOpen, Download, Copy, Check, Printer,
+  BookOpen, Download, Copy, Check, Printer,
   RefreshCw, Sliders, AlertCircle, Trash2, History,
   FileCheck, Shield, Eye, GraduationCap,
   ChevronDown, ChevronUp, Search
@@ -311,26 +311,25 @@ export const ApcExamGenerator: React.FC<ApcExamGeneratorProps> = ({
           <div>
             <div className="flex flex-wrap items-center gap-2 mb-2">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                <Sparkles size={13} className="text-amber-400" />
-                APC Togo 🇹🇬
+                APC Togo
               </span>
               {passActive ? (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                   <Shield size={12} />
-                  Pass Actif (Illimité • Pool Djanta)
+                  Pass Actif (Illimité)
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                  🎁 Essai Gratuit : {Math.max(0, FREE_EXAMS_QUOTA - freeExamsCount)}/2 épreuves restantes
+                  Essai gratuit : {Math.max(0, FREE_EXAMS_QUOTA - freeExamsCount)}/2 épreuves restantes
                 </span>
               )}
               <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono bg-slate-800 text-slate-300 border border-slate-700">
-                Gemini Flash
+                Moteur IA
               </span>
             </div>
             <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
               <GraduationCap className="text-amber-400" size={26} />
-              Générateur d'Épreuves APC par IA
+              Générateur d'Épreuves APC
             </h2>
             <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl leading-relaxed">
               Créez des sujets d’évaluation et de composition conformes aux normes togolaises :
@@ -339,18 +338,14 @@ export const ApcExamGenerator: React.FC<ApcExamGeneratorProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800/90 text-amber-300 border border-slate-700">
-              <Sparkles size={13} className="text-amber-400" />
-              Moteur IA Gemini
-            </span>
-
             <button
               type="button"
               onClick={() => setIsHistoryOpen(true)}
-              className="p-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 transition-colors"
-              title="Historique des épreuves sauvegardées"
+              className="p-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 transition-colors flex items-center gap-1.5 text-xs"
+              title="Historique des épreuves"
             >
-              <History size={18} />
+              <History size={16} />
+              <span>Historique</span>
             </button>
           </div>
         </div>
@@ -734,8 +729,8 @@ export const ApcExamGenerator: React.FC<ApcExamGeneratorProps> = ({
                   </>
                 ) : (
                   <>
-                    <Sparkles size={16} className="text-amber-400" />
-                    <span>Générer l'Épreuve Officielle avec Gemini (0 FCFA)</span>
+                    <GraduationCap size={16} className="text-amber-400" />
+                    <span>Générer l'Épreuve Officielle</span>
                   </>
                 )}
               </button>
@@ -1163,7 +1158,7 @@ export const ApcExamGenerator: React.FC<ApcExamGeneratorProps> = ({
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
             <div className="text-center space-y-2">
               <div className="w-12 h-12 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center mx-auto shadow-sm">
-                <Sparkles size={24} />
+                <GraduationCap size={24} />
               </div>
               <h3 className="font-bold text-base sm:text-lg text-slate-900">
                 Quota d’essai gratuit atteint (2/2)
