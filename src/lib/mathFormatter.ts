@@ -221,6 +221,11 @@ function transformExam(exam: ApcExam, formatter: (s: string) => string): ApcExam
     ...exo,
     titre: formatter(exo.titre || ''),
     intro: exo.intro ? formatter(exo.intro) : undefined,
+    figure: exo.figure ? {
+      ...exo.figure,
+      titre: formatter(exo.figure.titre || ''),
+      legende: exo.figure.legende ? formatter(exo.figure.legende) : undefined
+    } : undefined,
     questions: (exo.questions || []).map(q => ({
       ...q,
       enonce: formatter(q.enonce || ''),
@@ -236,6 +241,11 @@ function transformExam(exam: ApcExam, formatter: (s: string) => string): ApcExam
       titre: formatter(sit.titre || ''),
       contexte: formatter(sit.contexte || ''),
       donnees: sit.donnees ? formatter(sit.donnees) : undefined,
+      figure: sit.figure ? {
+        ...sit.figure,
+        titre: formatter(sit.figure.titre || ''),
+        legende: sit.figure.legende ? formatter(sit.figure.legende) : undefined
+      } : undefined,
       consignes: (sit.consignes || []).map(c => ({
         ...c,
         enonce: formatter(c.enonce || '')

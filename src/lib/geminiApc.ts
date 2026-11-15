@@ -454,6 +454,18 @@ RÈGLES PÉDAGOGIQUES MAJEURES APC TOGO (NON NÉGOCIABLES) :
    - Fractions et divisions : écris lisiblement les fractions avec parenthèses claires ou utilise le symbole "÷" (ex: (x + 1) / (x - 2) ou 120 ÷ 2 = 60).
    - Notations géométriques : segment [AB], droite (AB), demi-droite [AB), longueur AB, vecteur vect(AB), angle ang(ABC).
 
+7. FIGURES ET SCHÉMAS SCIENTIFIQUES OBLIGATOIRES (MATHS, PCT, SVT) :
+   Pour toute épreuve de Mathématiques (géométrie, fonctions), PCT (électricité, mécanique, titrage) ou SVT (génétique, biologie) reposant sur un schéma ou un document d'appui, tu DOIS inclure un objet "figure" dans l'exercice concerné ou dans la situation d'intégration.
+   Tu as le choix entre deux approches puissantes (ou leur combinaison) :
+   - GABARIT PARAMÉTRIQUE RECOMMANDÉ : renseigne le champ "template" avec l'un des modèles togolais suivants :
+     * "geometry_triangle" : Triangle ABC avec segment sécant [MN] // [BC] (Thalès / Pythagore). Params possibles : { labelA: 'A', labelB: 'B', labelC: 'C', labelM: 'M', labelN: 'N', isRightAngle: true, coteAB: '40 m', coteBC: '30 m', coteMN: '12 m' }
+     * "circuit_rlc" : Schéma de circuit électrique série. Params possibles : { genLabel: 'E', switchLabel: 'K', resistorLabel: 'R', comp2Label: 'C', currentLabel: 'i(t)' }
+     * "mechanics_inclined_plane" : Plan incliné avec mobile et forces (P, R, f). Params possibles : { angle: 'α = 30°', masse: 'm = 250 g' }
+     * "genetics_pedigree" : Arbre généalogique officiel SVT (générations I et II, individus sains/porteurs/atteints). Params possibles : { maladie: 'Drépanocytose', i1: 'sain', i2: 'porteur', ii1: 'porteur', ii2: 'atteint', ii3: 'sain' }
+     * "cartesian_grid" : Repère orthonormé (O, i, j) avec courbe. Params possibles : { xLabel: 'x', yLabel: 'f(x)', curveType: 'parabola' | 'line' | 'sine' }
+     * "chemistry_titration" : Dispositif expérimental de dosage/titrage (burette + bécher + agitateur). Params possibles : { titrant: 'Solution NaOH', titre: 'Solution HCl' }
+   - SVG SUR-MESURE VECTORIEL : Si le problème nécessite un schéma spécifique non couvert par les gabarits, renseigne "template": "custom" et fournis directement dans "svgContent" un code SVG pur et propre (viewBox="0 0 500 240", fond blanc, pas de balise <script>, avec traits noirs/bleus soignés et textes lisibles).
+
 ${disciplineInstructions}`;
 }
 
@@ -522,6 +534,12 @@ Tu dois respecter EXACTEMENT la structure JSON suivante :
       "titre": "Exercice 2 : Résolution de problèmes intermédiaires / Exploitation de documents (6 pts)",
       "points": 6,
       "intro": "Contexte de l'exercice...",
+      "figure": {
+        "titre": "Figure 1 : Schéma ou document d'appui",
+        "template": "geometry_triangle | circuit_rlc | mechanics_inclined_plane | genetics_pedigree | cartesian_grid | chemistry_titration | custom",
+        "params": { "labelA": "A", "coteAB": "40 m" },
+        "legende": "Légende explicative de la figure"
+      },
       "questions": [
         {
           "numero": "2.1",
@@ -536,6 +554,12 @@ Tu dois respecter EXACTEMENT la structure JSON suivante :
     "titre": "Exercice 3 : Situation d'évaluation (Compétences - 8 points)",
     "contexte": "Récit narratif complet et détaillé décrivant la situation concrète au Togo. RÈGLE STRICTE : AUCUNE question ni consigne dans ce texte !",
     "donnees": "Données numériques ou documentaires intégrées au problème (tarifs en FCFA, grandeurs mesurées, etc.)",
+    "figure": {
+      "titre": "Document 1 : Dispositif / Plan / Pédigrée",
+      "template": "geometry_triangle | circuit_rlc | mechanics_inclined_plane | genetics_pedigree | cartesian_grid | chemistry_titration | custom",
+      "params": { "maladie": "Drépanocytose" },
+      "legende": "Légende du document d'appui"
+    },
     "consignes": [
       {
         "numero": 1,
@@ -1049,6 +1073,22 @@ function getRawOfflineSampleExam(classe = '3e', discipline = 'maths'): ApcExam {
           titre: 'Exercice 2 : Résolution de problèmes intermédiaires (6 points)',
           points: 6,
           intro: 'Configuration géométrique du plan.',
+          figure: {
+            titre: 'Figure 1 : Triangle ABC et sécante parallèle (EF)',
+            template: 'geometry_triangle',
+            params: {
+              labelA: 'A',
+              labelB: 'B',
+              labelC: 'C',
+              labelM: 'E',
+              labelN: 'F',
+              isRightAngle: false,
+              coteAB: '7,5 cm',
+              coteBC: '9 cm',
+              coteMN: 'EF'
+            },
+            legende: 'Configuration de Thalès : (EF) // (BC)'
+          },
           questions: [
             {
               numero: '2.1',
@@ -1075,6 +1115,22 @@ function getRawOfflineSampleExam(classe = '3e', discipline = 'maths'): ApcExam {
         titre: 'Exercice 3 : Situation d\'évaluation (Compétences - 8 points)',
         contexte: 'L\'association des jeunes maraîchers de Baguida (Lomé) a obtenu une parcelle triangulaire pour installer un système d\'arrosage goutte-à-goutte et cultiver des légumes biologiques. Le géomètre local a modélisé le terrain par un triangle ABC rectangle en B, où AB = 40 m et BC = 30 m. Une canalisation principale d\'eau doit être posée le long du segment [AC]. L\'entrepreneur en charge des travaux souhaite subdiviser la parcelle en deux zones d\'irrigation distinctes au moyen d\'un tuyau secondaire [MN] parallèle au côté [BC], avec M situé sur [AB] à 16 mètres du point A, et N situé sur [AC]. Pour des raisons de pression hydraulique, la pompe doit être calibrée en fonction exacte des longueurs des deux canalisations, et le devis doit être validé par le trésorier de l\'association avant le début des travaux.',
         donnees: 'Coût du mètre linéaire de tuyau haute pression : 3 500 FCFA. Forfait d\'installation par le technicien : 45 000 FCFA. Remise accordée par la quincaillerie si l\'achat dépasse 150 000 FCFA : 8%.',
+        figure: {
+          titre: 'Document 1 : Plan cadastral du terrain des maraîchers de Baguida',
+          template: 'geometry_triangle',
+          params: {
+            labelA: 'A',
+            labelB: 'B',
+            labelC: 'C',
+            labelM: 'M',
+            labelN: 'N',
+            isRightAngle: true,
+            coteAB: 'AB = 40 m',
+            coteBC: 'BC = 30 m',
+            coteMN: 'Tuyau [MN]'
+          },
+          legende: 'Terrain triangulaire ABC et canalisation secondaire [MN]'
+        },
         consignes: [
           {
             numero: 1,
@@ -1252,6 +1308,19 @@ function getRawOfflineSampleExam(classe = '3e', discipline = 'maths'): ApcExam {
       titre: 'Exercice 3 : Situation d\'intégration (Compétences - 8 points)',
       contexte: 'Dans le canton d\'Amoutiévé à Lomé, un comité de santé communautaire constate que plusieurs couples de jeunes mariés découvrent tardivement le statut drépanocytaire de leurs nouveau-nés après des crises douloureuses récurrentes. Certains membres de la communauté attribuent encore ces manifestations à des malédictions mystiques, entraînant des retards de prise en charge au CHU Sylvanus Olympio. Le médecin-chef du centre médico-social sollicite les élèves de Terminale scientifique pour concevoir des supports de sensibilisation clairs et scientifiquement irréfutables.',
       donnees: 'Fréquence du trait drépanocytaire au Togo : environ 16% de porteurs sains AS. Test de diagnostic fiable : électrophorèse de l\'hémoglobine à pH alcalin.',
+      figure: {
+        titre: 'Document 1 : Arbre généalogique d’une famille du canton d’Amoutiévé',
+        template: 'genetics_pedigree',
+        params: {
+          maladie: 'Transmission de l’allèle drépanocytaire HbS',
+          i1: 'sain',
+          i2: 'porteur',
+          ii1: 'porteur',
+          ii2: 'atteint',
+          ii3: 'sain'
+        },
+        legende: 'Pédigrée génétique : Carrés (hommes), Cercles (femmes), Rempli (malade SS), Hachuré (porteur AS)'
+      },
       consignes: [
         {
           numero: 1,

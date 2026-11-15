@@ -27,6 +27,7 @@ import {
   getOfflineSampleExam
 } from '../../lib/geminiApc';
 import { generateApcExamPdf } from './ApcExamPdf';
+import { ApcFigureViewer } from './ApcFigureViewer';
 import { formatApcExamMath } from '../../lib/mathFormatter';
 
 interface ApcExamGeneratorProps {
@@ -203,11 +204,11 @@ export const ApcExamGenerator: React.FC<ApcExamGeneratorProps> = ({
   };
 
   // Téléchargement PDF A4
-  const handleDownloadPdf = () => {
+  const handleDownloadPdf = async () => {
     if (!currentExam) return;
     setIsExportingPdf(true);
     try {
-      const { blob, fileName } = generateApcExamPdf(currentExam);
+      const { blob, fileName } = await generateApcExamPdf(currentExam);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -241,6 +242,9 @@ export const ApcExamGenerator: React.FC<ApcExamGeneratorProps> = ({
       fullText += `----------------------------------------\n`;
       fullText += `${exo.titre.toUpperCase()} (${exo.points} pts)\n`;
       if (exo.intro) fullText += `${exo.intro}\n\n`;
+      if (exo.figure) {
+        fullText += `[FIGURE / DOCUMENT : ${exo.figure.titre}${exo.figure.legende ? ' — ' + exo.figure.legende : ''}]\n\n`;
+      }
       for (const q of exo.questions) {
         fullText += `${q.numero} ${q.enonce} [${q.points} pt(s)]\n`;
         if (q.choix) {
@@ -258,6 +262,9 @@ export const ApcExamGenerator: React.FC<ApcExamGeneratorProps> = ({
       fullText += `${sit.titre.toUpperCase()} (8 points)\n\n`;
       fullText += `Contexte :\n${sit.contexte}\n\n`;
       if (sit.donnees) fullText += `Données utiles : ${sit.donnees}\n\n`;
+      if (sit.figure) {
+        fullText += `[DOCUMENT D'APPUI / FIGURE : ${sit.figure.titre}${sit.figure.legende ? ' — ' + sit.figure.legende : ''}]\n\n`;
+      }
       fullText += `Consignes :\n`;
       for (const c of sit.consignes) {
         fullText += `• Consigne ${c.numero} [${c.bareme} pts] : ${c.enonce}\n`;
@@ -903,6 +910,10 @@ export const ApcExamGenerator: React.FC<ApcExamGeneratorProps> = ({
                       </p>
                     )}
 
+                    {exo.figure && (
+                      <ApcFigureViewer figure={exo.figure} />
+                    )}
+
                     <div className="space-y-3">
                       {exo.questions.map(q => (
                         <div key={q.numero} className="text-xs sm:text-sm">
@@ -960,6 +971,10 @@ export const ApcExamGenerator: React.FC<ApcExamGeneratorProps> = ({
                       <div className="text-xs sm:text-sm text-slate-700 font-sans">
                         <strong>Données utiles :</strong> {currentExam.situationIntegration.donnees}
                       </div>
+                    )}
+
+                    {currentExam.situationIntegration.figure && (
+                      <ApcFigureViewer figure={currentExam.situationIntegration.figure} />
                     )}
 
                     {/* CONSIGNES */}

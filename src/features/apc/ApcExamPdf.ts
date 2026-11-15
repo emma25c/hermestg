@@ -1,6 +1,50 @@
 import { jsPDF } from 'jspdf';
 import { ApcExam } from '../../types/apc';
 import { formatApcExamForPdf, formatMathForPdf } from '../../lib/mathFormatter';
+import { resolveFigureSvg } from '../../lib/figureTemplates';
+
+/**
+ * Convertit un flux SVG vectoriel en image PNG (Data URL base64) via le Canvas HTML5.
+ */
+async function convertSvgToPngDataUrl(svgString: string, width = 600, height = 280): Promise<string | null> {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return null;
+  if (!svgString || !svgString.trim()) return null;
+
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(svgBlob);
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            URL.revokeObjectURL(url);
+            return resolve(null);
+          }
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, width, height);
+          ctx.drawImage(img, 0, 0, width, height);
+          URL.revokeObjectURL(url);
+          resolve(canvas.toDataURL('image/png'));
+        } catch {
+          URL.revokeObjectURL(url);
+          resolve(null);
+        }
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(null);
+      };
+      img.src = url;
+    } catch {
+      resolve(null);
+    }
+  });
+}
 
 /**
  * Génère un document PDF A4 haute définition, officiel et rigoureusement calibré
@@ -13,10 +57,29 @@ import { formatApcExamForPdf, formatMathForPdf } from '../../lib/mathFormatter';
  *    - Caractères Windows-1252 natifs (×, ÷, ², ³, ¹, ±, °, µ, •)
  *    - Translitérations académiques pour les symboles hors Windows-1252 (racine, <=, >=, !=, ^(4), u_n, etc.)
  *    évitant toute corruption visuelle dans les lecteurs PDF.
+ * 4. Figures scientifiques intégrées (gabarits paramétriques ou SVG sur-mesure) sans coupure de page.
  */
-export function generateApcExamPdf(rawExam: ApcExam): { blob: Blob; url: string; fileName: string } {
+export async function generateApcExamPdf(rawExam: ApcExam): Promise<{ blob: Blob; url: string; fileName: string }> {
   // 1. Formatage mathématique préalable de toute l'épreuve sécurisé pour la police Helvetica (Windows-1252)
   const exam = formatApcExamForPdf(rawExam);
+
+  // 1.b Pré-conversion asynchrone des figures vectorielles en images PNG
+  const exoImages = await Promise.all(
+    (exam.exercices || []).map(async (exo) => {
+      if (!exo.figure) return null;
+      const svg = resolveFigureSvg(exo.figure);
+      if (!svg) return null;
+      return await convertSvgToPngDataUrl(svg);
+    })
+  );
+
+  let situationImage: string | null = null;
+  if (exam.situationIntegration?.figure) {
+    const svg = resolveFigureSvg(exam.situationIntegration.figure);
+    if (svg) {
+      situationImage = await convertSvgToPngDataUrl(svg);
+    }
+  }
 
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -151,7 +214,7 @@ export function generateApcExamPdf(rawExam: ApcExam): { blob: Blob; url: string;
   // ==========================================
   // 3. EXERCICES (ÉVALUATION DES RESSOURCES)
   // ==========================================
-  for (const exo of exam.exercices) {
+  for (const [eIdx, exo] of exam.exercices.entries()) {
     // Calcul de la taille du bandeau de titre d'exercice
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
@@ -187,6 +250,35 @@ export function generateApcExamPdf(rawExam: ApcExam): { blob: Blob; url: string;
       doc.setTextColor(71, 85, 105);
       const introLines = doc.splitTextToSize(exo.intro, contentWidth);
       printWrappedLines(introLines, margin, 3.8);
+      y += 2.5;
+    }
+
+    // Figure / Schéma scientifique de l'exercice
+    const exoImg = exoImages[eIdx];
+    if (exo.figure && exoImg) {
+      const figWidth = 100;
+      const figHeight = 44;
+      const figX = margin + (contentWidth - figWidth) / 2;
+
+      ensureSpace(figHeight + 14);
+
+      doc.setFillColor(255, 255, 255);
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.3);
+      doc.rect(figX - 2, y, figWidth + 4, figHeight + 4, 'FD');
+
+      doc.addImage(exoImg, 'PNG', figX, y + 2, figWidth, figHeight);
+      y += figHeight + 7;
+
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(7.5);
+      doc.setTextColor(71, 85, 105);
+      const capText = `${exo.figure.titre || 'Figure d’appui'}${exo.figure.legende ? ' — ' + exo.figure.legende : ''}`;
+      const capLines = doc.splitTextToSize(capText, contentWidth - 20);
+      for (const line of capLines) {
+        doc.text(line, pageWidth / 2, y, { align: 'center' });
+        y += 3.5;
+      }
       y += 2.5;
     }
 
@@ -367,6 +459,34 @@ export function generateApcExamPdf(rawExam: ApcExam): { blob: Blob; url: string;
         }
         doc.text(donneesLines[di], margin + 2 + dLabelWidth, y);
         y += 4.0;
+      }
+      y += 3;
+    }
+
+    // Figure / Document d'appui pour la situation d'évaluation
+    if (sit.figure && situationImage) {
+      const figWidth = 100;
+      const figHeight = 44;
+      const figX = margin + (contentWidth - figWidth) / 2;
+
+      ensureSpace(figHeight + 14);
+
+      doc.setFillColor(255, 255, 255);
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.3);
+      doc.rect(figX - 2, y, figWidth + 4, figHeight + 4, 'FD');
+
+      doc.addImage(situationImage, 'PNG', figX, y + 2, figWidth, figHeight);
+      y += figHeight + 7;
+
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(7.5);
+      doc.setTextColor(71, 85, 105);
+      const capText = `${sit.figure.titre || 'Document d’appui'}${sit.figure.legende ? ' — ' + sit.figure.legende : ''}`;
+      const capLines = doc.splitTextToSize(capText, contentWidth - 20);
+      for (const line of capLines) {
+        doc.text(line, pageWidth / 2, y, { align: 'center' });
+        y += 3.5;
       }
       y += 3;
     }

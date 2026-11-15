@@ -22,6 +22,25 @@ export interface ApcDisciplineMeta {
   icon: string;
 }
 
+export type ApcFigureTemplateType =
+  | 'geometry_triangle'
+  | 'circuit_rlc'
+  | 'mechanics_inclined_plane'
+  | 'genetics_pedigree'
+  | 'cartesian_grid'
+  | 'chemistry_titration'
+  | 'custom';
+
+export interface ApcFigure {
+  id?: string;
+  titre: string;
+  template?: ApcFigureTemplateType;
+  params?: Record<string, any>;
+  svgContent?: string;
+  legende?: string;
+  largeurMm?: number;
+}
+
 export interface ApcExerciceQuestion {
   numero: string;
   enonce: string;
@@ -35,6 +54,7 @@ export interface ApcExercice {
   titre: string;
   points: number;
   intro?: string;
+  figure?: ApcFigure;
   questions: ApcExerciceQuestion[];
 }
 
@@ -48,6 +68,7 @@ export interface ApcSituationIntegration {
   titre: string;
   contexte: string; // Récit contextualisé sans question
   donnees?: string;
+  figure?: ApcFigure;
   consignes: {
     numero: number;
     enonce: string;
