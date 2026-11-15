@@ -27,3 +27,6 @@ dist-ssr
 .env
 .env.*
 !.env.example
+
+# Local agent handover with credentials
+HANDOVER_DJANTA_HUB.md
